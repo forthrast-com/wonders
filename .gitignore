@@ -1,0 +1,5 @@
+data/raw_*
+.direnv/
+result
+scratch/
+.DS_Store
