@@ -175,7 +175,7 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
     field: "#123f80", sea: "#1b5cb0", land: "#2b6dc2", white: "#ffffff",
     pale: "#bcd3f2", line: "rgba(255,255,255,0.45)", faint: "rgba(255,255,255,0.35)",
   };
-  const left = 56;
+  const left = 40;
 
   // the one label style; returns its drawn width
   const label = (text, x, y, colour = P.white, align = "left") => {
@@ -222,8 +222,15 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   g.setLineDash([]);
   label(SITE_URL.replace("https://", ""), left, 86, P.pale);
 
-  // the world, pushed right to the margin the frieze ends on
-  const map_box = [[480, 96], [right, 500]];
+  const names = generic ? shuffled(sites).slice(0, 45).map((s) => short_name(s.name)) : shuffled(summary.recent);
+  const rows = !names.length ? 0 : generic ? 3 : names.length < 6 ? 1 : names.length < 15 ? 2 : 3;
+  const ROW_H = 34;
+  const LAST_ROW_Y = 604;
+  const rows_top = rows ? LAST_ROW_Y - (rows - 1) * ROW_H - 18 : CARD_H - 24;
+
+  // the world: pushed right to the margin, centred in the open band between
+  // the dashed rule and the first postcard row (fitExtent centres within it)
+  const map_box = [[400, frieze_y + 22.5 + 8], [right, rows_top - 6]];
   const proj = d3.geoNaturalEarth1().fitExtent(map_box, { type: "Sphere" });
   const path = d3.geoPath(proj, g);
   g.lineWidth = 1;
@@ -243,15 +250,10 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   }
 
   // the number, then what it counts
-  const names = generic ? shuffled(sites).slice(0, 45).map((s) => short_name(s.name)) : shuffled(summary.recent);
-  const rows = !names.length ? 0 : generic ? 3 : names.length < 6 ? 1 : names.length < 15 ? 2 : 3;
-  const ROW_H = 34;
-  const LAST_ROW_Y = 604;
-  const rows_top = rows ? LAST_ROW_Y - (rows - 1) * ROW_H - 18 : CARD_H - 24;
 
   const numeral = String(generic ? summary.total : summary.count);
   g.font = "800 200px Archivo, Helvetica, Arial, sans-serif";
-  const column_w = 400;
+  const column_w = 340;
   const size = Math.min(200, Math.floor((200 * column_w) / g.measureText(numeral).width));
   g.font = `800 ${size}px Archivo, Helvetica, Arial, sans-serif`;
   // block = numerals (cap height ~0.72em) + two labels + the icon row
@@ -739,9 +741,11 @@ async function main() {
     } else if (centre_geo && k > 1) {
       const [cx, cy] = projection(centre_geo);
       surface.interrupt().call(zoom.transform, d3.zoomIdentity.translate(width / 2 - cx * k, height / 2 - cy * k).scale(k));
-    } else {
-      request_draw();
     }
+    // resizing a canvas wipes it on the spot; repaint in this same frame or
+    // the map blinks empty for one (the "flash" on a phone's first selection)
+    draw_base();
+    draw_markers();
   }
 
   // --- markers ---

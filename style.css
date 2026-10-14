@@ -336,7 +336,7 @@ b { font-weight: 700; }
 }
 .fields div { display: flex; gap: var(--u); align-items: baseline; }
 .fields dt { color: var(--ink-soft); }
-.fields dd { margin: 0; font-size: var(--t-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.fields dd { margin: 0; line-height: 1.35; font-size: var(--t-label); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
 
 /* one line each, the full docket width; only an overflowing line moves,
    panning to its end and back so the whole name gets read */
@@ -587,6 +587,9 @@ b { font-weight: 700; }
   .docket-site { gap: 4px; }
   .site-name { padding-right: 0; font-size: 1.25rem; }
   .docket-actions { flex-wrap: nowrap; justify-content: space-between; }
+  /* one line, always: a wrapped field row resizes the map */
+  .fields { flex-wrap: nowrap; overflow: hidden; gap: 0 calc(2 * var(--u)); }
+  .fields div { white-space: nowrap; }
   .toggle { padding-block: 6px; white-space: nowrap; min-width: 0; overflow: hidden; }
   .docket-actions { min-width: 0; }
   .docket-actions a { white-space: nowrap; }
