@@ -111,10 +111,10 @@ const CARD_W = 1200;
 const CARD_H = 630;
 
 function brag_line(count, total, countries) {
-  const of = `UNESCO's ${total.toLocaleString("en-AU")}`;
-  if (count === 0) return `${of} World Heritage sites, and my register starts today. How many are in yours?`;
-  const across = countries > 1 ? `, across ${countries} countries` : "";
-  return `My World Heritage register: ${count} of ${of} sites visited${across}. How many are in yours?`;
+  const sites = `${total.toLocaleString("en-AU")} World Heritage sites`;
+  if (count === 0) return `UNESCO lists ${sites}. How many have you been to?`;
+  const across = countries > 1 ? ` across ${countries} countries` : "";
+  return `I’ve visited ${count} of UNESCO’s ${sites}${across}. How many have you been to?`;
 }
 
 // "Historic Centre of Rome, the Properties of the Holy See…" → "Historic Centre of Rome"
@@ -825,6 +825,7 @@ async function main() {
     copy: el("ledger_copy"),
     share: el("ledger_share"),
     card: el("ledger_card"),
+    preview: el("ledger_preview"),
     ticker: el("ledger_ticker"),
   };
   ledger.sort.value = LEDGER_SORTS[load_sort()] ? load_sort() : "recent";
@@ -932,6 +933,7 @@ async function main() {
 
   el("ledger_open").addEventListener("click", () => {
     render_ledger();
+    prepare_card();
     ledger.dialog.showModal();
   });
   el("ledger_close").addEventListener("click", () => ledger.dialog.close());
@@ -974,35 +976,64 @@ async function main() {
     sites, visits: state.visits, land: geo_by_res["110m"].land, summary: card_summary(), generic,
   });
 
-  // Share: the phone's share sheet with the card attached where it allows
-  // files; without a share sheet, the line and link go to the clipboard.
-  ledger.share.addEventListener("click", async () => {
+  // The card is drawn ahead of time. Safari opens the share sheet only from
+  // inside the tap itself, and awaiting fonts and PNG encoding first spends
+  // that tap, so the share quietly fails.
+  const prepared = { key: null, file: null, url: null, job: null };
+  const visits_key = () => Object.keys(state.visits).sort().join(",");
+
+  function prepare_card() {
+    const key = visits_key();
+    if (prepared.key === key) return prepared.job;
+    prepared.key = key;
+    prepared.file = null;
+    prepared.job = (async () => {
+      const blob = await canvas_png(await make_card());
+      if (prepared.key !== key) return null; // visits changed mid-render; a newer job owns it
+      prepared.file = new File([blob], "world-heritage-register.png", { type: "image/png" });
+      if (prepared.url) URL.revokeObjectURL(prepared.url);
+      prepared.url = URL.createObjectURL(blob);
+      ledger.preview.src = prepared.url;
+      return prepared.file;
+    })();
+    return prepared.job;
+  }
+
+  const ready_card = () => (prepared.key === visits_key() ? prepared.file : null);
+
+  function share_line() {
     const s = card_summary();
-    const text = brag_line(s.count, s.total, s.countries);
+    return brag_line(s.count, s.total, s.countries);
+  }
+
+  // Share: image and words together through the phone's share sheet. With a
+  // file attached the link rides inside the text, because several iOS targets
+  // drop a separate url. No share sheet: the line and link go to the clipboard.
+  ledger.share.addEventListener("click", () => {
+    const line = share_line();
     if (typeof navigator.share !== "function") {
-      const ok = await copy_text(`${text} ${SITE_URL}`);
-      flash(ledger.share, ok ? "Link copied" : "Copy failed");
+      copy_text(`${line} ${SITE_URL}`).then((ok) => flash(ledger.share, ok ? "Link copied" : "Copy failed"));
       return;
     }
-    const data = { title: "World Heritage Register", text, url: SITE_URL };
-    const file = new File([await canvas_png(await make_card())], "world-heritage-register.png", { type: "image/png" });
-    if (navigator.canShare?.({ files: [file] })) data.files = [file];
-    try {
-      await navigator.share(data);
-    } catch (err) {
+    const file = ready_card();
+    const data = file && navigator.canShare?.({ files: [file] })
+      ? { files: [file], text: `${line} ${SITE_URL}` }
+      : { text: line, url: SITE_URL };
+    if (!file) prepare_card(); // the next tap will carry the image
+    navigator.share(data).catch(async (err) => {
       if (err.name === "AbortError") return; // viewer closed the share sheet
-      const ok = await copy_text(`${text} ${SITE_URL}`);
+      const ok = await copy_text(`${line} ${SITE_URL}`);
       flash(ledger.share, ok ? "Link copied" : "Share failed");
-    }
+    });
   });
 
   ledger.card.addEventListener("click", async () => {
-    const url = URL.createObjectURL(await canvas_png(await make_card()));
+    const file = ready_card() ?? (await prepare_card());
+    if (!file) return;
     const a = document.createElement("a");
-    a.href = url;
-    a.download = "world-heritage-register.png";
+    a.href = prepared.url;
+    a.download = file.name;
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
     flash(ledger.card, "Saved");
   });
 
@@ -1088,6 +1119,18 @@ async function main() {
     request_draw({ base: false });
   }
 
+  // a quiet prompt at round numbers; it never moves the layout
+  const MILESTONES = new Set([1, 5, 10, 25, 50, 75]);
+  let nudge_timer = null;
+  function maybe_nudge(count) {
+    if (!MILESTONES.has(count) && count % 100 !== 0) return;
+    el("nudge_text").textContent = count === 1 ? "First site stamped." : `${count} sites stamped.`;
+    const nudge = el("nudge");
+    nudge.hidden = false;
+    clearTimeout(nudge_timer);
+    nudge_timer = setTimeout(() => { nudge.hidden = true; }, 7000);
+  }
+
   function toggle_visit(id) {
     const visits = { ...state.visits };
     const now_visited = !visits[id];
@@ -1098,6 +1141,8 @@ async function main() {
     render_docket({ thunk: now_visited });
     render_tally();
     request_draw({ base: false });
+    if (now_visited) maybe_nudge(Object.keys(visits).length);
+    when_idle(prepare_card); // keep a fresh card ready for the share sheet
   }
 
   // --- zoom & tap ---
@@ -1281,6 +1326,11 @@ async function main() {
     fit_marquee(docket.states.parentElement);
   }).observe(docket.site);
 
+  el("nudge_share").addEventListener("click", () => {
+    el("nudge").hidden = true;
+    el("ledger_open").click();
+  });
+
   // --- disclaimer note ---
   const notice = el("notice");
   document.querySelectorAll("[data-notice]").forEach((b) => b.addEventListener("click", () => notice.showModal()));
@@ -1292,6 +1342,7 @@ async function main() {
   layout();
   render_tally();
   render_docket();
+  when_idle(prepare_card);
 }
 
 main();

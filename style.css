@@ -214,6 +214,30 @@ b { font-weight: 700; }
 .zoom button + button { border-top: var(--hair); }
 .zoom button:hover { background: var(--poster); }
 
+/* milestone nudge: floats over the map, never moves the layout */
+.nudge {
+  top: var(--g);
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: calc(1.5 * var(--u));
+  padding: var(--u) var(--u) var(--u) calc(1.5 * var(--u));
+  max-width: calc(100% - 2 * var(--g));
+  font-size: var(--t-label);
+  white-space: nowrap;
+  z-index: 3;
+}
+.nudge button {
+  padding: 4px var(--u);
+  border: 1px solid var(--white);
+  background: var(--white);
+  color: var(--field);
+  font-family: var(--face);
+  cursor: pointer;
+}
+
 .map-status {
   position: absolute;
   inset: 0;
@@ -441,7 +465,15 @@ b { font-weight: 700; }
   color: var(--ink);
   font-family: var(--face);
 }
-.ledger[open] { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.ledger[open] { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr) auto; grid-template-columns: minmax(0, 1fr); }
+.ledger-preview {
+  display: block;
+  width: calc(100% - 2 * var(--g));
+  height: auto;
+  margin: 0 var(--g) var(--u);
+  border: 1px solid var(--line-ink);
+  background: var(--field);
+}
 .ledger::backdrop { background: rgb(18 63 128 / 0.75); }
 
 .ledger-head {
@@ -489,7 +521,8 @@ b { font-weight: 700; }
   cursor: pointer;
 }
 .tool:hover, .ledger-close:hover { background: rgb(15 42 87 / 0.06); }
-.tool.done { background: var(--ink); color: var(--paper); }
+.tool.done, .tool-primary { background: var(--ink); color: var(--paper); }
+.tool-primary:hover { background: var(--poster); }
 
 .ledger-rows { margin: 0; padding: 0; list-style: none; overflow-y: auto; }
 .ledger-rows li + li { border-top: 1px solid var(--line-ink); }

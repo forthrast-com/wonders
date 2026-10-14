@@ -9,9 +9,9 @@
   <link rel="canonical" href="https://wonders.forthrast.com/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://wonders.forthrast.com/">
-  <meta property="og:title" content="World Heritage Register">
-  <meta property="og:description" content="1,273 UNESCO World Heritage sites. Stamp the ones you've been to. Made with AI.">
-  <meta property="og:image" content="https://wonders.forthrast.com/og-card.png">
+  <meta property="og:title" content="World Heritage Register: how many of the 1,273 have you visited?">
+  <meta property="og:description" content="Tap the UNESCO World Heritage sites you've been to, then share your card. Unofficial; made with AI.">
+  <meta property="og:image" content="https://wonders.forthrast.com/og-card.png?v=3">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="A blue poster-style world map of UNESCO World Heritage sites with the count 1273">
@@ -65,6 +65,11 @@
       <button type="button" id="zoom_reset" aria-label="Show whole world">○</button>
     </div>
 
+    <div id="nudge" class="nudge panel" role="status" hidden>
+      <span id="nudge_text"></span>
+      <button type="button" id="nudge_share" class="label">Share your register</button>
+    </div>
+
     <p id="map_status" class="map-status label">Retrieving the register…</p>
   </main>
 
@@ -104,7 +109,7 @@
   <footer class="ai-notice" role="note">
     <button type="button" class="badge label" data-notice aria-haspopup="dialog">Made with AI</button>
     <button type="button" class="badge label" data-notice aria-haspopup="dialog">Unofficial</button>
-    <span class="wide-only">Designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction, so it may contain mistakes. Not affiliated with or endorsed by UNESCO; check each site's official file before relying on anything here.</span>
+    <span class="wide-only">Designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction, so it may contain mistakes.<br>Not affiliated with or endorsed by UNESCO; check each site's official file before relying on anything here.</span>
   </footer>
 
   <dialog id="notice" class="notice" aria-labelledby="notice_title">
@@ -124,6 +129,7 @@
       </div>
       <button type="button" id="ledger_close" class="ledger-close" aria-label="Close register">✕</button>
     </header>
+    <img id="ledger_preview" class="ledger-preview" alt="Your share card: your count and a map of the sites you've visited" width="1200" height="630">
     <div class="ledger-tools">
       <label class="label" for="ledger_sort">Sort</label>
       <select id="ledger_sort">
@@ -133,9 +139,9 @@
         <option value="country">Country</option>
         <option value="inscribed">Year inscribed</option>
       </select>
-      <button type="button" id="ledger_copy" class="tool label">Copy list</button>
-      <button type="button" id="ledger_share" class="tool label">Share</button>
+      <button type="button" id="ledger_share" class="tool tool-primary label">Share</button>
       <button type="button" id="ledger_card" class="tool label">Save card</button>
+      <button type="button" id="ledger_copy" class="tool label">Copy list</button>
     </div>
     <ol id="ledger_rows" class="ledger-rows"></ol>
     <p class="ledger-foot label">No future without the past</p>
