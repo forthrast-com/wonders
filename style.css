@@ -202,6 +202,111 @@ b { font-weight: 700; }
 .key-note { padding: 0 var(--u) var(--u); font-size: var(--t-label); color: var(--pale); }
 
 .zoom { right: var(--g); display: grid; }
+
+/* MAP | LIST: top-left of the map, same panel as the key and zoom */
+.view-switch { top: var(--g); bottom: auto; left: var(--g); display: flex; z-index: 4; }
+.view-switch button {
+  padding: var(--u) calc(1.5 * var(--u));
+  border: 0;
+  background: none;
+  color: var(--pale);
+  font-family: var(--face);
+  cursor: pointer;
+}
+.view-switch button + button { border-left: var(--hair); }
+.view-switch button[aria-selected="true"] { background: var(--white); color: var(--field); }
+
+/* the list replaces the map in place; key and zoom step aside */
+.map.is-list .key, .map.is-list .zoom, .map.is-list .nudge { display: none; }
+.list-view {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--paper);
+  color: var(--ink);
+}
+.list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--u) calc(2 * var(--u));
+  padding: var(--g) var(--g) var(--u);
+  border-bottom: 1px solid var(--line-ink);
+}
+/* the MAP | LIST tab floats over this spot */
+.tab-space { flex: none; width: 108px; height: 34px; }
+.list-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--u); }
+.list-controls select {
+  padding: 6px var(--u);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--t-body) var(--face);
+}
+.list-controls label { color: var(--ink-soft); }
+.list-head input {
+  flex: 1 1 200px;
+  min-width: 0;
+  max-width: 420px;
+  padding: var(--u);
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--t-body) var(--face);
+}
+.list-head .label { color: var(--ink-soft); white-space: nowrap; }
+.list-body { overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--g); }
+
+.country { content-visibility: auto; contain-intrinsic-size: auto 320px; }
+.country-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px calc(2 * var(--u));
+  margin: 0;
+  padding: var(--u) var(--g) 6px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line-ink);
+}
+.country-head .count { font-size: var(--t-label); font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.country-head .rule { grid-column: 1 / -1; height: 2px; background: rgb(15 42 87 / 0.12); }
+.country-head .rule i { display: block; height: 100%; background: var(--ink); }
+
+.country ul { margin: 0; padding: 0; list-style: none; }
+.country li { display: flex; align-items: center; border-bottom: 1px solid rgb(15 42 87 / 0.1); }
+.site-row {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(1.5 * var(--u));
+  padding: var(--u) 0 var(--u) var(--g);
+  cursor: pointer;
+}
+.site-row input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); cursor: pointer; }
+.site-row svg { width: 26px; height: 26px; overflow: visible; }
+.site-row .nm { line-height: 1.3; }
+.site-row .yr { font-size: var(--t-label); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.site-row:has(input:checked) .nm { font-weight: 700; }
+.show-on-map {
+  align-self: stretch;
+  padding: 0 var(--g);
+  border: 0;
+  background: none;
+  color: var(--poster);
+  font: 400 var(--t-body) var(--face);
+  cursor: pointer;
+}
+.show-on-map:hover { background: rgb(27 92 176 / 0.1); }
+.list-empty { padding: var(--g); color: var(--ink-soft); }
 .zoom button {
   width: 40px;
   height: 40px;
@@ -253,6 +358,8 @@ b { font-weight: 700; }
 :focus-visible { outline: 2px solid var(--white); outline-offset: 2px; }
 
 /* ---------- docket ---------- */
+
+.docket, .ledger, .notice, .list-view { color-scheme: light; }
 
 .docket {
   position: relative;
@@ -555,6 +662,17 @@ b { font-weight: 700; }
 @media (max-width: 640px) {
   .ledger { width: 100vw; max-width: 100vw; height: 100%; max-height: 100%; margin: 0; border: 0; }
   .ledger-tools select { flex: 1; margin-right: 0; }
+  .list-controls { flex: 1 0 100%; }
+  .list-controls select { flex: 1; min-width: 0; }
+  /* labels stay for screen readers; the selects' own values say enough here */
+  .list-controls label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   .ledger-actions { flex: 1 0 100%; }
   .ledger-actions .tool { flex: 1; padding-inline: var(--u); }
 }

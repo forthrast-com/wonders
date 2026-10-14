@@ -320,6 +320,85 @@ function load_visits() {
 }
 
 const SORT_KEY = "whr.ledger_sort";
+const VIEW_KEY = "whr.view";
+
+function load_view() {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "map";
+  } catch (err) {
+    // storage blocked: open on the map
+    return "map";
+  }
+}
+
+function save_view(view) {
+  try {
+    localStorage.setItem(VIEW_KEY, view);
+  } catch (err) {
+    // storage blocked: the view just won't be remembered
+  }
+}
+
+const LIST_KEY = "whr.list";
+const LIST_DEFAULTS = { group: "country", show: "all" };
+
+function load_list_prefs() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LIST_KEY) || "{}");
+    return { ...LIST_DEFAULTS, ...saved };
+  } catch (err) {
+    // SecurityError or a mangled entry: defaults
+    return { ...LIST_DEFAULTS };
+  }
+}
+
+function save_list_prefs(prefs) {
+  try {
+    localStorage.setItem(LIST_KEY, JSON.stringify(prefs));
+  } catch (err) {
+    // storage blocked: the choice just won't be remembered
+  }
+}
+
+// How the list can be cut. Each returns the group labels a site belongs to
+// (a transboundary site sits under every one of its countries), plus the
+// order groups and sites appear in.
+const LIST_GROUPINGS = {
+  country: {
+    keys: (s) => s.states,
+    order: (a, b) => a.localeCompare(b),
+    sites: (a, b) => a.name.localeCompare(b.name),
+  },
+  region: {
+    keys: (s) => [s.region],
+    order: (a, b) => a.localeCompare(b),
+    sites: (a, b) => a.states[0].localeCompare(b.states[0]) || a.name.localeCompare(b.name),
+  },
+  category: {
+    keys: (s) => [CATEGORY_NAMES[s.cat]],
+    order: (a, b) => ["Cultural", "Natural", "Mixed"].indexOf(a) - ["Cultural", "Natural", "Mixed"].indexOf(b),
+    sites: (a, b) => a.name.localeCompare(b.name),
+  },
+  decade: {
+    keys: (s) => [`${Math.floor(s.year / 10) * 10}s`],
+    order: (a, b) => a.localeCompare(b),
+    sites: (a, b) => a.year - b.year || a.name.localeCompare(b.name),
+  },
+};
+
+function group_sites(sites, grouping) {
+  const g = LIST_GROUPINGS[grouping] ?? LIST_GROUPINGS.country;
+  const groups = new Map();
+  for (const s of sites) {
+    for (const key of g.keys(s)) {
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(s);
+    }
+  }
+  return [...groups.entries()]
+    .sort((a, b) => g.order(a[0], b[0]))
+    .map(([label, list]) => ({ label, sites: list.sort(g.sites) }));
+}
 
 function load_sort() {
   try {
@@ -1076,20 +1155,9 @@ async function main() {
   ledger.share.addEventListener("click", () => {
     const line = share_line();
     if (typeof navigator.share !== "function") {
-      // no share sheet (most desktops): card and words onto the clipboard
-      // together, so pasting into a chat gives the image and a text field the line
-      const file = ready_card();
-      const text = `${line} ${SITE_URL}`;
-      const write_both = file && typeof ClipboardItem === "function"
-        ? navigator.clipboard.write([new ClipboardItem({
-          "image/png": file,
-          "text/plain": new Blob([text], { type: "text/plain" }),
-        })])
-        : Promise.reject(new Error("card not ready or no image clipboard"));
-      write_both
-        .then(() => flash(ledger.share, "Card copied"))
-        .catch(() => copy_text(text).then((ok) => flash(ledger.share, ok ? "Link copied" : "Copy failed")));
-      if (!file) prepare_card();
+      // no share sheet (most desktops): the words and link only. Paste targets
+      // there take an image or text, rarely both well; Save card covers the image.
+      copy_text(`${line} ${SITE_URL}`).then((ok) => flash(ledger.share, ok ? "Copied" : "Copy failed"));
       return;
     }
     const file = ready_card();
@@ -1218,6 +1286,7 @@ async function main() {
     render_docket({ thunk: now_visited });
     render_tally();
     request_draw({ base: false });
+    sync_list(id);
     if (now_visited) maybe_nudge(Object.keys(visits).length);
     when_idle(prepare_card); // keep a fresh card ready for the share sheet
   }
@@ -1407,6 +1476,167 @@ async function main() {
     el("nudge").hidden = true;
     el("ledger_open").click();
   });
+
+  // --- list view: every site by country, for stamping in bulk ---
+  const list = {
+    view: el("list_view"),
+    body: el("list_body"),
+    filter: el("list_filter"),
+    shown: el("list_shown"),
+    group: el("list_group"),
+    show: el("list_show"),
+    built: false,
+    groups: [],
+    prefs: load_list_prefs(),
+  };
+  list.group.value = LIST_GROUPINGS[list.prefs.group] ? list.prefs.group : "country";
+  list.show.value = ["all", "todo", "done"].includes(list.prefs.show) ? list.prefs.show : "all";
+
+  function country_count(group) {
+    return group.sites.reduce((n, s) => n + (state.visits[s.id] ? 1 : 0), 0);
+  }
+
+  function paint_country_head(section, group) {
+    const n = country_count(group);
+    section.querySelector(".count").textContent = `${n} of ${group.sites.length}`;
+    section.querySelector(".rule i").style.width = `${(100 * n) / group.sites.length}%`;
+  }
+
+  function build_list() {
+    const svg_ns = "http://www.w3.org/2000/svg";
+    const frag = document.createDocumentFragment();
+    list.groups = group_sites(sites, list.group.value);
+    list.groups.forEach((group, index) => {
+      const section = document.createElement("section");
+      section.className = "country";
+      section.dataset.key = fold(group.label);
+      section.dataset.index = index;
+      const head = document.createElement("h3");
+      head.className = "country-head";
+      head.innerHTML = '<span class="label"></span><span class="count"></span><span class="rule"><i></i></span>';
+      head.querySelector(".label").textContent = group.label;
+      const ul = document.createElement("ul");
+      for (const s of group.sites) {
+        const li = document.createElement("li");
+        li.dataset.search = s.search_name;
+        li.dataset.id = s.id;
+        const row = document.createElement("label");
+        row.className = "site-row";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.dataset.id = s.id;
+        box.checked = !!state.visits[s.id];
+        const icon = document.createElementNS(svg_ns, "svg");
+        icon.setAttribute("viewBox", "-15 -15 30 30");
+        icon.setAttribute("aria-hidden", "true");
+        icon.dataset.icon = s.cat;
+        icon.dataset.mode = s.danger ? "danger" : "open";
+        const nm = document.createElement("span");
+        nm.className = "nm";
+        nm.textContent = s.name;
+        const yr = document.createElement("span");
+        yr.className = "yr";
+        yr.textContent = s.year;
+        row.append(box, icon, nm, yr);
+        const show = document.createElement("button");
+        show.type = "button";
+        show.className = "show-on-map";
+        show.dataset.show = s.id;
+        show.setAttribute("aria-label", `Show ${s.name} on the map`);
+        show.textContent = "↗\uFE0E";
+        li.append(row, show);
+        ul.append(li);
+      }
+      section.append(head, ul);
+      paint_country_head(section, group);
+      frag.append(section);
+    });
+    list.body.replaceChildren(frag);
+    fill_key_icons(list.body);
+    list.built = true;
+    apply_list_filter();
+  }
+
+  // keep every copy of a site's row (and its groups' counts) in step. Rows are
+  // not re-filtered here: under "Not yet visited" a ticked row stays put until
+  // the filter changes, so the list never shifts under a thumb mid-stamp.
+  function sync_list(id) {
+    if (!list.built) return;
+    for (const box of list.body.querySelectorAll(`input[data-id="${id}"]`)) {
+      box.checked = !!state.visits[id];
+      const section = box.closest(".country");
+      paint_country_head(section, list.groups[Number(section.dataset.index)]);
+    }
+  }
+
+  function apply_list_filter() {
+    const q = fold(list.filter.value.trim());
+    const show = list.show.value;
+    let shown = 0;
+    for (const section of list.body.querySelectorAll(".country")) {
+      // a group's own name matches too: "peru", "africa", "natural", "1990s"
+      const group_hit = !q || section.dataset.key.includes(q);
+      let any = false;
+      for (const li of section.querySelectorAll("li")) {
+        const visited = !!state.visits[li.dataset.id];
+        const wanted = show === "all" || (show === "done") === visited;
+        const hit = wanted && (group_hit || li.dataset.search.includes(q));
+        li.hidden = !hit;
+        if (hit) { any = true; shown += 1; }
+      }
+      section.hidden = !any;
+    }
+    const filtered = q || show !== "all";
+    list.shown.textContent = filtered ? `${shown} shown` : `${sites.length.toLocaleString("en-AU")} sites`;
+    if (!shown) list.shown.textContent = "Nothing matches";
+  }
+
+  function remember_list_prefs() {
+    list.prefs = { group: list.group.value, show: list.show.value };
+    save_list_prefs(list.prefs);
+  }
+  list.group.addEventListener("change", () => {
+    remember_list_prefs();
+    build_list();
+    list.body.scrollTop = 0;
+  });
+  list.show.addEventListener("change", () => {
+    remember_list_prefs();
+    apply_list_filter();
+  });
+
+  function set_view(view) {
+    const is_list = view === "list";
+    if (is_list && !list.built) build_list();
+    map_el.classList.toggle("is-list", is_list);
+    list.view.hidden = !is_list;
+    el("view_map").setAttribute("aria-selected", String(!is_list));
+    el("view_list").setAttribute("aria-selected", String(is_list));
+    save_view(view);
+  }
+
+  el("view_map").addEventListener("click", () => set_view("map"));
+  el("view_list").addEventListener("click", () => set_view("list"));
+  list.filter.addEventListener("input", () => requestAnimationFrame(apply_list_filter));
+
+  // one tap stamps: select it (so the docket shows the record) then toggle
+  list.body.addEventListener("change", (ev) => {
+    const box = ev.target.closest("input[data-id]");
+    if (!box) return;
+    const id = Number(box.dataset.id);
+    select_site(id);
+    toggle_visit(id);
+  });
+  list.body.addEventListener("click", (ev) => {
+    const b = ev.target.closest("button[data-show]");
+    if (!b) return;
+    const s = sites_by_id.get(Number(b.dataset.show));
+    set_view("map");
+    select_site(s.id);
+    focus_site(s);
+  });
+
+  if (load_view() === "list") set_view("list");
 
   // --- disclaimer note ---
   const notice = el("notice");

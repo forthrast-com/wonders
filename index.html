@@ -59,6 +59,35 @@
       <p class="key-note">Pictograms appear as you zoom in.</p>
     </details>
 
+    <div class="view-switch panel" role="tablist" aria-label="View">
+      <button type="button" role="tab" id="view_map" class="label" aria-selected="true" aria-controls="map_surface">Map</button>
+      <button type="button" role="tab" id="view_list" class="label" aria-selected="false" aria-controls="list_view">List</button>
+    </div>
+
+    <section id="list_view" class="list-view" aria-label="All sites by country" hidden>
+      <div class="list-head">
+        <span class="tab-space" aria-hidden="true"></span>
+        <input id="list_filter" type="search" placeholder="Filter sites or countries" autocomplete="off" spellcheck="false" aria-label="Filter sites or countries">
+        <div class="list-controls">
+          <label class="label" for="list_group">Group</label>
+          <select id="list_group">
+            <option value="country">Country</option>
+            <option value="region">Region</option>
+            <option value="category">Category</option>
+            <option value="decade">Decade inscribed</option>
+          </select>
+          <label class="label" for="list_show">Show</label>
+          <select id="list_show">
+            <option value="all">All</option>
+            <option value="todo">Not yet visited</option>
+            <option value="done">Visited</option>
+          </select>
+          <span id="list_shown" class="label"></span>
+        </div>
+      </div>
+      <div id="list_body" class="list-body"></div>
+    </section>
+
     <div class="zoom panel">
       <button type="button" id="zoom_in" aria-label="Zoom in">+</button>
       <button type="button" id="zoom_out" aria-label="Zoom out">−</button>
