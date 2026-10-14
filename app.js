@@ -1182,6 +1182,14 @@ async function main() {
       ? { files: [file], text: `${line} ${SITE_URL}` }
       : { text: line, url: SITE_URL };
     if (!file) prepare_card(); // the next tap will carry the image
+    // Messenger, Bluesky and others keep the image and drop the text, so the
+    // caption also goes to the clipboard, ready to paste. Not awaited: share()
+    // must still run inside this tap.
+    if (data.files) {
+      navigator.clipboard?.writeText(`${line} ${SITE_URL}`)
+        .then(() => flash(ledger.share, "Caption copied"))
+        .catch(() => { /* clipboard refused: the share itself still goes */ });
+    }
     navigator.share(data).catch(async (err) => {
       if (err.name === "AbortError") return; // viewer closed the share sheet
       const ok = await copy_text(`${line} ${SITE_URL}`);
