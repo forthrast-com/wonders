@@ -220,7 +220,6 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   g.lineTo(CARD_W, frieze_y + 22.5);
   g.stroke();
   g.setLineDash([]);
-  label(SITE_URL.replace("https://", ""), left, 86, P.pale);
 
   const names = generic ? shuffled(sites).slice(0, 45).map((s) => short_name(s.name)) : shuffled(summary.recent);
   const rows = !names.length ? 0 : generic ? 3 : names.length < 6 ? 1 : names.length < 15 ? 2 : 3;
@@ -232,6 +231,10 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   // the dashed rule and the first postcard row (fitExtent centres within it)
   const map_box = [[400, frieze_y + 22.5 + 8], [right, rows_top - 6]];
   const proj = d3.geoNaturalEarth1().fitExtent(map_box, { type: "Sphere" });
+  // the text column takes its top and bottom edges from the map's outline
+  const [[, map_top], [, map_bottom]] = d3.geoPath(proj).bounds({ type: "Sphere" });
+  const LABEL_CAP = 13; // cap height of the 18px label face
+  label(SITE_URL.replace("https://", ""), left, Math.round(map_top + LABEL_CAP), P.pale);
   const path = d3.geoPath(proj, g);
   g.lineWidth = 1;
   g.beginPath(); path({ type: "Sphere" }); g.fillStyle = P.sea; g.fill(); g.strokeStyle = P.line; g.stroke();
@@ -262,8 +265,9 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   // block = numerals (cap height ~0.72em) + two labels + the icon row
   const cap = size * 0.72;
   const below = 136;
-  // anchored bottom left: the icon row sits one row-gap above the postcards
-  const baseline = Math.round(rows_top - 30 - (below - 6));
+  // anchored bottom left: the icon row's roundels end level with the map's
+  // bottom (each roundel reaches 6px below the row's baseline)
+  const baseline = Math.round(map_bottom - 6 - (below - 6));
   g.fillStyle = P.white;
   g.textBaseline = "alphabetic";
   g.fillText(numeral, left - size * 0.04, baseline);

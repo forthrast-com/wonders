@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>World Heritage Register</title>
+  <meta name="description" content="A personal register of UNESCO World Heritage sites visited. Tap a site to file it, tap again to record the visit.">
+  <meta name="theme-color" content="#123f80">
+  <link rel="canonical" href="https://wonders.forthrast.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://wonders.forthrast.com/">
+  <meta property="og:title" content="World Heritage Register: how many of the 1,273 have you visited?">
+  <meta property="og:description" content="Tap the UNESCO World Heritage sites you've been to, then share your card. Unofficial; made with AI.">
+  <meta property="og:image" content="https://wonders.forthrast.com/og-card.png?v=8">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A blue poster-style world map of UNESCO World Heritage sites with the count 1273">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="generator" content="Claude Opus 5.5 (Anthropic): this site was made with AI">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-50 -50 100 100'%3E%3Crect x='-50' y='-50' width='100' height='100' fill='%231b5cb0'/%3E%3Cg fill='none' stroke='white' stroke-width='7'%3E%3Ccircle r='34'/%3E%3Crect x='-24' y='-24' width='48' height='48'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="masthead">
+    <svg id="emblem" class="emblem" viewBox="-50 -50 100 100" role="img" aria-label="Progress dial: one tick lights for every seventy-second of the list visited"></svg>
+    <div id="tally_count" class="odometer" aria-live="polite">0000</div>
+    <div class="tally-meta">
+      <span class="label wide-only">Sites visited</span>
+      <span>of <b id="tally_total">—</b> inscribed · <b id="tally_pct">0.0%</b></span>
+      <span id="tally_breakdown" class="tally-breakdown"></span>
+    </div>
+    <button type="button" id="ledger_open" class="ledger-peek" aria-haspopup="dialog" aria-controls="ledger">
+      <span class="peek-head">
+        <span class="label"><span class="wide-only">Your </span>Register</span>
+        <span class="peek-button label"><span class="wide-only">View and share</span><span class="narrow-only">View &amp; share</span></span>
+      </span>
+      <span class="ticker" aria-hidden="true"><span id="ledger_ticker" class="ticker-track"></span></span>
+    </button>
+  </header>
+
+  <main class="map" id="map">
+    <canvas id="map_base" class="map-layer" aria-hidden="true"></canvas>
+    <canvas id="map_markers" class="map-layer" aria-hidden="true"></canvas>
+    <div id="map_surface" class="map-surface" role="img" aria-label="World map of UNESCO World Heritage sites"></div>
+
+    <details class="key panel" id="map_key" open>
+      <summary class="label">Key</summary>
+      <table class="key-grid">
+        <thead><tr><td></td><th scope="col">Cultural</th><th scope="col">Natural</th><th scope="col">Mixed</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Inscribed</th><td><svg viewBox="-15 -15 30 30" data-icon="C" data-mode="open" role="img" aria-label="Cultural, inscribed"></svg></td><td><svg viewBox="-15 -15 30 30" data-icon="N" data-mode="open" role="img" aria-label="Natural, inscribed"></svg></td><td><svg viewBox="-15 -15 30 30" data-icon="M" data-mode="open" role="img" aria-label="Mixed, inscribed"></svg></td></tr>
+          <tr><th scope="row">In Danger</th><td><svg viewBox="-15 -15 30 30" data-icon="C" data-mode="danger" role="img" aria-label="Cultural, in danger"></svg></td><td><svg viewBox="-15 -15 30 30" data-icon="N" data-mode="danger" role="img" aria-label="Natural, in danger"></svg></td><td><svg viewBox="-15 -15 30 30" data-icon="M" data-mode="danger" role="img" aria-label="Mixed, in danger"></svg></td></tr>
+          <tr><th scope="row">Visited</th><td><svg viewBox="-15 -15 30 30" data-icon="C" data-mode="visited" role="img" aria-label="Cultural, visited"></svg></td><td><svg viewBox="-15 -15 30 30" data-icon="N" data-mode="visited" role="img" aria-label="Natural, visited"></svg></td><td><svg viewBox="-15 -15 30 30" data-icon="M" data-mode="visited" role="img" aria-label="Mixed, visited"></svg></td></tr>
+        </tbody>
+      </table>
+      <p class="key-note">Pictograms appear as you zoom in.</p>
+    </details>
+
+    <div class="view-switch panel" role="tablist" aria-label="View">
+      <button type="button" role="tab" id="view_map" class="label" aria-selected="true" aria-controls="map_surface">Map</button>
+      <button type="button" role="tab" id="view_list" class="label" aria-selected="false" aria-controls="list_view">List</button>
+    </div>
+
+    <section id="list_view" class="list-view" aria-label="All sites by country" hidden>
+      <div class="list-head">
+        <span class="tab-space" aria-hidden="true"></span>
+        <input id="list_filter" type="search" placeholder="Filter sites or countries" autocomplete="off" spellcheck="false" aria-label="Filter sites or countries">
+        <div class="list-controls">
+          <label class="label" for="list_group">Group</label>
+          <select id="list_group">
+            <option value="country">Country</option>
+            <option value="region">Region</option>
+            <option value="category">Category</option>
+            <option value="decade">Decade inscribed</option>
+          </select>
+          <label class="label" for="list_show">Show</label>
+          <select id="list_show">
+            <option value="all">All</option>
+            <option value="todo">Not yet visited</option>
+            <option value="done">Visited</option>
+          </select>
+          <span id="list_shown" class="label"></span>
+        </div>
+      </div>
+      <div id="list_body" class="list-body"></div>
+    </section>
+
+    <div class="zoom panel">
+      <button type="button" id="zoom_in" aria-label="Zoom in">+</button>
+      <button type="button" id="zoom_out" aria-label="Zoom out">−</button>
+      <button type="button" id="zoom_reset" aria-label="Show whole world">○</button>
+    </div>
+
+    <div id="nudge" class="nudge panel" role="status" hidden>
+      <span id="nudge_text"></span>
+      <button type="button" id="nudge_share" class="label">Share your register</button>
+    </div>
+
+    <p id="map_status" class="map-status label">Retrieving the register…</p>
+  </main>
+
+  <section class="docket" id="docket" aria-label="Property docket">
+    <div class="docket-head">
+      <span class="label form-no">Form WHC-72/B · Property docket</span>
+      <div class="search">
+        <input id="site_search" type="search" placeholder="Search sites or countries" autocomplete="off" spellcheck="false" aria-controls="search_results">
+        <ol id="search_results" class="results" hidden></ol>
+      </div>
+    </div>
+
+    <div class="docket-body">
+    <p id="docket_empty" class="docket-empty">Select a site on the map. Tap the same site again to record your visit.</p>
+
+    <div id="docket_site" class="docket-site is-off">
+      <dl class="fields">
+        <div><dt class="label">Ref. No.</dt><dd id="d_ref"></dd></div>
+        <div><dt class="label wide-only">Category</dt><dd id="d_cat"></dd></div>
+        <div><dt class="label wide-only">Inscribed</dt><dd id="d_year"></dd></div>
+        <div id="d_danger_row" hidden><dt class="label wide-only">Status</dt><dd>In Danger</dd></div>
+      </dl>
+      <h2 class="site-name marquee"><span id="d_name">&#8203;</span></h2>
+      <p class="site-states marquee"><span id="d_states">&#8203;</span></p>
+      <div class="docket-actions">
+        <button type="button" id="d_toggle" class="toggle label" aria-pressed="false">
+          <span class="box" aria-hidden="true"></span>
+          <span id="d_toggle_label">Tap again to record</span>
+        </button>
+        <a id="d_link" class="label" href="#" target="_blank" rel="noopener"><span class="wide-only">Official </span>file ↗&#xFE0E;</a>
+      </div>
+      <div id="d_stamp" class="stamp" hidden><span>Visited</span><small id="d_stamp_date"></small></div>
+    </div>
+    </div>
+  </section>
+
+  <footer class="ai-notice" role="note">
+    <button type="button" class="badge label" data-notice aria-haspopup="dialog">Made with AI</button>
+    <button type="button" class="badge label" data-notice aria-haspopup="dialog">Unofficial</button>
+    <span class="wide-only">Designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction, so it may contain mistakes.<br>Not affiliated with or endorsed by UNESCO; check each site's official file before relying on anything here.</span>
+  </footer>
+
+  <dialog id="notice" class="notice" aria-labelledby="notice_title">
+    <div class="notice-body">
+    <h2 id="notice_title" class="label">About this site</h2>
+    <p><strong>Made with AI.</strong> This site was designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction. The code, layout and wording are machine-made and may contain mistakes.</p>
+    <p><strong>Unofficial.</strong> Not affiliated with or endorsed by UNESCO. Site data comes from UNESCO's open data portal; check each site's official file before relying on anything here.</p>
+    <button type="button" id="notice_close" class="tool label">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="ledger" class="ledger" aria-labelledby="ledger_title">
+    <header class="ledger-head">
+      <div>
+        <h2 id="ledger_title" class="label">Register of visits</h2>
+        <p id="ledger_summary" class="ledger-summary"></p>
+      </div>
+      <button type="button" id="ledger_close" class="ledger-close" aria-label="Close register">✕</button>
+    </header>
+    <img id="ledger_preview" class="ledger-preview" alt="Your share card: your count and a map of the sites you've visited" width="1200" height="630">
+    <div class="ledger-tools">
+      <label class="label" for="ledger_sort">Sort</label>
+      <select id="ledger_sort">
+        <option value="recent">Recorded, newest first</option>
+        <option value="oldest">Recorded, oldest first</option>
+        <option value="name">Name, A–Z</option>
+        <option value="country">Country</option>
+        <option value="inscribed">Year inscribed</option>
+      </select>
+      <div class="ledger-actions">
+        <button type="button" id="ledger_share" class="tool tool-primary label">Share</button>
+        <button type="button" id="ledger_card" class="tool label">Save card</button>
+        <button type="button" id="ledger_copy" class="tool label">Copy list</button>
+      </div>
+    </div>
+    <ol id="ledger_rows" class="ledger-rows"></ol>
+    <p class="ledger-foot label">No future without the past</p>
+  </dialog>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
