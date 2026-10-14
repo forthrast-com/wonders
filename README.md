@@ -21,6 +21,18 @@ browser keeps its own register.
 Static files only: `index.html`, `style.css`, `app.js`, `data/`. d3 loads from
 cdnjs; the font from Google Fonts.
 
+## Saving
+
+Your register lives only in your browser (`localStorage`). There is no
+backend and no account.
+
+If saving across devices is ever added, it will be through the
+[AT Protocol](https://atproto.com) only: signing in with your Bluesky (or other
+atproto) identity and writing your register to your own repository on your own
+PDS. That's a deliberate choice: your record should belong to you, on an open
+protocol, rather than to this site or to any company's database. No other sync
+backend will be added.
+
 ## Run locally
 
 ```sh
