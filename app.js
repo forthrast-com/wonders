@@ -1012,7 +1012,20 @@ async function main() {
   ledger.share.addEventListener("click", () => {
     const line = share_line();
     if (typeof navigator.share !== "function") {
-      copy_text(`${line} ${SITE_URL}`).then((ok) => flash(ledger.share, ok ? "Link copied" : "Copy failed"));
+      // no share sheet (most desktops): card and words onto the clipboard
+      // together, so pasting into a chat gives the image and a text field the line
+      const file = ready_card();
+      const text = `${line} ${SITE_URL}`;
+      const write_both = file && typeof ClipboardItem === "function"
+        ? navigator.clipboard.write([new ClipboardItem({
+          "image/png": file,
+          "text/plain": new Blob([text], { type: "text/plain" }),
+        })])
+        : Promise.reject(new Error("card not ready or no image clipboard"));
+      write_both
+        .then(() => flash(ledger.share, "Card copied"))
+        .catch(() => copy_text(text).then((ok) => flash(ledger.share, ok ? "Link copied" : "Copy failed")));
+      if (!file) prepare_card();
       return;
     }
     const file = ready_card();
