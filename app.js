@@ -237,12 +237,14 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   g.beginPath(); path({ type: "Sphere" }); g.fillStyle = P.sea; g.fill(); g.strokeStyle = P.line; g.stroke();
   g.beginPath(); path(d3.geoGraticule10()); g.strokeStyle = "rgba(255,255,255,0.08)"; g.stroke();
   g.beginPath(); path(land); g.fillStyle = P.land; g.fill(); g.strokeStyle = P.line; g.stroke();
-  g.fillStyle = P.faint;
+  // personal card: unvisited recede to a dust so your seals carry it;
+  // the link-preview card has no seals, so the whole List is the subject
+  g.fillStyle = generic ? "rgba(255,255,255,0.75)" : P.faint;
+  const dot_r = generic ? 1.8 : 1.3;
   for (const s of sites) {
     if (visits[s.id]) continue;
     const [x, y] = proj([s.lon, s.lat]);
-    // unvisited recede to a dust, so your seals carry the card
-    g.beginPath(); g.arc(x, y, 1.3, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.arc(x, y, dot_r, 0, Math.PI * 2); g.fill();
   }
   for (const s of sites) {
     if (!visits[s.id]) continue;
