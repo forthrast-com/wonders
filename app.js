@@ -173,7 +173,7 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   const g = c.getContext("2d");
   const P = {
     field: "#123f80", sea: "#1b5cb0", land: "#2b6dc2", white: "#ffffff",
-    pale: "#bcd3f2", line: "rgba(255,255,255,0.45)", faint: "rgba(255,255,255,0.35)",
+    pale: "#bcd3f2", line: "rgba(255,255,255,0.45)", faint: "rgba(255,255,255,0.18)",
   };
   const left = 40;
 
@@ -241,12 +241,13 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   for (const s of sites) {
     if (visits[s.id]) continue;
     const [x, y] = proj([s.lon, s.lat]);
-    g.beginPath(); g.arc(x, y, 1.5, 0, Math.PI * 2); g.fill();
+    // unvisited recede to a dust, so your seals carry the card
+    g.beginPath(); g.arc(x, y, 1.3, 0, Math.PI * 2); g.fill();
   }
   for (const s of sites) {
     if (!visits[s.id]) continue;
     const [x, y] = proj([s.lon, s.lat]);
-    draw_visited_dot(g, x, y, 2.4, false);
+    draw_visited_dot(g, x, y, 3, false);
   }
 
   // the number, then what it counts
