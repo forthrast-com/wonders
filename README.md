@@ -40,6 +40,16 @@ nix develop
 python3 -m http.server 8000   # the page fetches data/*.json, so file:// won't do
 ```
 
+## Check changes
+
+```sh
+nix-shell -p nodejs --run 'node --check app.js && node --test scripts/test_app.cjs'
+```
+
+The regression checks cover place-name matching, copied-list links and save
+failures. Check layout changes in a browser at narrow portrait and short
+landscape sizes too.
+
 ## Deploy to GitHub Pages
 
 Push to a repo, then *Settings → Pages → Deploy from a branch → `main` / root*.

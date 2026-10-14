@@ -12,7 +12,6 @@ const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").mat
 // A starting guess only: touch laptops, iPads with trackpads and some phones
 // report hover. The pointer actually in use switches it (see set_hover_mode).
 let HOVER_MODE = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-const verb = () => (HOVER_MODE ? "click" : "tap");
 // switch from 1:110m to 1:50m coastline past this zoom
 const FINE_ZOOM = 2.5;
 
@@ -30,8 +29,12 @@ function parse_site(row) {
 }
 
 function fold(text) {
-  return text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return text.normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase().replace(/['’‘ʼ]/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
+
+// Keep familiar former names searchable without changing the official display name.
+const SEARCH_ALIASES = { 630: ["Fraser Island"] };
 
 function search_sites(sites, query, limit = 8) {
   const q = fold(query.trim());
@@ -41,9 +44,10 @@ function search_sites(sites, query, limit = 8) {
     const name = s.search_name;
     const name_at = name.indexOf(q);
     const state_hit = s.search_states.includes(q);
-    if (name_at === -1 && !state_hit) continue;
+    const alias_hit = s.search_aliases?.some((alias) => alias.includes(q));
+    if (name_at === -1 && !state_hit && !alias_hit) continue;
     // prefix match beats word match beats state-only match
-    const score = name_at === 0 ? 0 : name_at > 0 && name[name_at - 1] === " " ? 1 : name_at > 0 ? 2 : 3;
+    const score = name_at === 0 ? 0 : name_at > 0 && name[name_at - 1] === " " ? 1 : name_at > 0 || alias_hit ? 2 : 3;
     scored.push([score, s]);
   }
   scored.sort((a, b) => a[0] - b[0] || a[1].name.localeCompare(b[1].name));
@@ -101,7 +105,7 @@ function ledger_entries(sites_by_id, visits, sort_key) {
 function ledger_text(entries, total) {
   const pct = ((100 * entries.length) / total).toFixed(1);
   const lines = entries.map(({ site, date }) => `${date}  ${site.name} (${site.states.join(", ")})`);
-  return [`World Heritage Register: ${entries.length} of ${total.toLocaleString("en-AU")} sites visited (${pct}%)`, "", ...lines].join("\n");
+  return [`World Heritage Register: ${entries.length} of ${total.toLocaleString("en-AU")} sites visited (${pct}%)`, "", ...lines, "", SITE_URL].join("\n");
 }
 
 // ---------- opening view: the viewer's own part of the world ----------
@@ -427,9 +431,11 @@ function save_sort(key) {
 function save_visits(visits) {
   try {
     localStorage.setItem(STORE_KEY, JSON.stringify({ v: 1, visits }));
+    return true;
   } catch (err) {
     // QuotaExceeded / SecurityError: the session still works, it just won't persist
     console.warn("register not saved:", err);
+    return false;
   }
 }
 
@@ -633,6 +639,7 @@ async function main() {
   for (const s of sites) {
     s.search_name = fold(s.name);
     s.search_states = fold(s.states.join(" "));
+    s.search_aliases = (SEARCH_ALIASES[s.id] || []).map(fold);
   }
   const sites_by_id = new Map(sites.map((s) => [s.id, s]));
 
@@ -658,11 +665,14 @@ async function main() {
   const map_key = document.getElementById("map_key");
   fill_key_icons(map_key);
   // on a phone the key would cover most of the map; start it folded
-  if (window.matchMedia("(max-width: 640px)").matches) map_key.open = false;
+  const compact_map = window.matchMedia("(max-width: 640px), (max-height: 500px)");
+  if (compact_map.matches) map_key.open = false;
+  compact_map.addEventListener("change", (ev) => { if (ev.matches) map_key.open = false; });
 
   const el = (id) => document.getElementById(id);
   const docket = {
     empty: el("docket_empty"),
+    hint: el("docket_hint"),
     site: el("docket_site"),
     ref: el("d_ref"),
     cat: el("d_cat"),
@@ -679,10 +689,10 @@ async function main() {
 
   el("tally_total").textContent = sites.length.toLocaleString("en-AU");
   const EMPTY_COPY = {
-    hover: "Hover over a site to file it. Click it to record your visit.",
-    tap: "Tap a site on the map to file it. Tap it again to record your visit.",
+    hover: "Hover to explore. Click a site to mark it visited.",
+    tap: "Tap a site to explore. Tap it again to mark it visited.",
   };
-  docket.empty.textContent = HOVER_MODE ? EMPTY_COPY.hover : EMPTY_COPY.tap;
+  docket.hint.textContent = HOVER_MODE ? EMPTY_COPY.hover : EMPTY_COPY.tap;
 
   // --- map layers ---
   const projection = d3.geoNaturalEarth1();
@@ -1021,7 +1031,7 @@ async function main() {
     if (entries.length === 0) {
       const li = document.createElement("li");
       li.className = "ledger-empty";
-      li.textContent = `Nothing recorded yet. ${HOVER_MODE ? "Click" : "Tap"} a site on the map twice to stamp it.`;
+      li.textContent = "Nothing recorded yet. Find a site on the map or list and mark it visited.";
       ledger.rows.replaceChildren(li);
       return;
     }
@@ -1248,11 +1258,7 @@ async function main() {
     fit_marquee(docket.states.parentElement);
 
     docket.toggle.setAttribute("aria-pressed", String(!!visit_date));
-    const narrow = window.matchMedia("(max-width: 640px)").matches;
-    docket.toggle_label.textContent = visit_date
-      ? (narrow ? `Visited · ${verb()} to strike` : `Visited · ${verb()} to strike from register`)
-      : HOVER_MODE ? (narrow ? "Click the site to record" : "Not yet visited · click the site to record")
-        : narrow ? "Tap again to record" : "Not yet visited · tap again to record";
+    docket.toggle_label.textContent = visit_date ? "Visited · remove" : "Mark visited";
 
     docket.stamp.hidden = !visit_date;
     if (visit_date) {
@@ -1274,9 +1280,10 @@ async function main() {
   // a quiet prompt at round numbers; it never moves the layout
   const MILESTONES = new Set([1, 5, 10, 25, 50, 75]);
   let nudge_timer = null;
-  function maybe_nudge(count) {
-    if (!MILESTONES.has(count) && count % 100 !== 0) return;
-    el("nudge_text").textContent = count === 1 ? "First site stamped." : `${count} sites stamped.`;
+  function maybe_nudge(count, saved) {
+    if (saved && !MILESTONES.has(count) && count % 100 !== 0) return;
+    el("nudge_text").textContent = !saved ? "Couldn’t save in this browser."
+      : count === 1 ? "First site stamped. Saved in this browser." : `${count} sites stamped.`;
     const nudge = el("nudge");
     nudge.hidden = false;
     clearTimeout(nudge_timer);
@@ -1289,12 +1296,13 @@ async function main() {
     if (now_visited) visits[id] = today_iso();
     else delete visits[id];
     state.visits = visits;
-    save_visits(visits);
+    const saved = save_visits(visits);
+    el("ledger_storage").textContent = saved ? "Saved in this browser only" : "Not saved · browser storage unavailable";
     render_docket({ thunk: now_visited });
     render_tally();
     request_draw({ base: false });
     sync_list(id);
-    if (now_visited) maybe_nudge(Object.keys(visits).length);
+    if (now_visited || !saved) maybe_nudge(Object.keys(visits).length, saved);
     when_idle(prepare_card); // keep a fresh card ready for the share sheet
   }
 
@@ -1350,7 +1358,7 @@ async function main() {
   function set_hover_mode(on) {
     if (HOVER_MODE === on) return;
     HOVER_MODE = on;
-    docket.empty.textContent = on ? EMPTY_COPY.hover : EMPTY_COPY.tap;
+    docket.hint.textContent = on ? EMPTY_COPY.hover : EMPTY_COPY.tap;
     render_docket();
   }
 
@@ -1525,7 +1533,7 @@ async function main() {
       const ul = document.createElement("ul");
       for (const s of group.sites) {
         const li = document.createElement("li");
-        li.dataset.search = s.search_name;
+        li.dataset.search = [s.search_name, s.search_states, ...s.search_aliases].join(" ");
         li.dataset.id = s.id;
         const row = document.createElement("label");
         row.className = "site-row";

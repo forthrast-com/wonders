@@ -112,7 +112,11 @@
     </div>
 
     <div class="docket-body">
-    <p id="docket_empty" class="docket-empty">Select a site on the map. Tap the same site again to record your visit.</p>
+    <div id="docket_empty" class="docket-empty">
+      <h1 class="label">World Heritage Register</h1>
+      <p>Find the UNESCO sites you’ve visited. Mark them, then share your map.</p>
+      <p id="docket_hint" class="docket-hint">Tap a site to explore. Tap it again to mark it visited.</p>
+    </div>
 
     <div id="docket_site" class="docket-site is-off">
       <dl class="fields">
@@ -146,6 +150,7 @@
     <h2 id="notice_title" class="label">About this site</h2>
     <p><strong>Made with AI.</strong> This site was designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction. The code, layout and wording are machine-made and may contain mistakes.</p>
     <p><strong>Unofficial.</strong> Not affiliated with or endorsed by UNESCO. Site data comes from UNESCO's open data portal; check each site's official file before relying on anything here.</p>
+    <p><strong>Your register.</strong> Visits are saved automatically in this browser only. They won’t appear on another device, and clearing this site’s browser data removes them. A saved card is an image, not a backup.</p>
     <button type="button" id="notice_close" class="tool label">Close</button>
     </div>
   </dialog>
@@ -155,6 +160,7 @@
       <div>
         <h2 id="ledger_title" class="label">Register of visits</h2>
         <p id="ledger_summary" class="ledger-summary"></p>
+        <p id="ledger_storage" class="ledger-storage" role="status">Saved in this browser only</p>
       </div>
       <button type="button" id="ledger_close" class="ledger-close" aria-label="Close register">✕</button>
     </header>
