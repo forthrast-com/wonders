@@ -28,7 +28,7 @@
     <svg id="emblem" class="emblem" viewBox="-50 -50 100 100" role="img" aria-label="Progress dial: one tick lights for every seventy-second of the list visited"></svg>
     <div id="tally_count" class="odometer" aria-live="polite">0000</div>
     <div class="tally-meta">
-      <span class="label">Sites visited</span>
+      <span class="label wide-only">Sites visited</span>
       <span>of <b id="tally_total">—</b> inscribed · <b id="tally_pct">0.0%</b></span>
       <span id="tally_breakdown" class="tally-breakdown"></span>
     </div>
@@ -80,7 +80,7 @@
     <div id="docket_site" class="docket-site is-off">
       <dl class="fields">
         <div><dt class="label">Ref. No.</dt><dd id="d_ref"></dd></div>
-        <div><dt class="label">Category</dt><dd id="d_cat"></dd></div>
+        <div><dt class="label wide-only">Category</dt><dd id="d_cat"></dd></div>
         <div><dt class="label">Inscribed</dt><dd id="d_year"></dd></div>
         <div id="d_danger_row" hidden><dt class="label">Status</dt><dd>In Danger</dd></div>
       </dl>
@@ -91,7 +91,7 @@
           <span class="box" aria-hidden="true"></span>
           <span id="d_toggle_label">Not yet visited · tap again to record</span>
         </button>
-        <a id="d_link" class="label" href="#" target="_blank" rel="noopener">Official file ↗</a>
+        <a id="d_link" class="label" href="#" target="_blank" rel="noopener"><span class="wide-only">Official </span>file ↗&#xFE0E;</a>
       </div>
       <div id="d_stamp" class="stamp" hidden><span>Visited</span><small id="d_stamp_date"></small></div>
     </div>
@@ -100,7 +100,8 @@
 
   <footer class="ai-notice" role="note">
     <strong class="label">Made with AI</strong>
-    <span>This site was designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction. Site data comes from UNESCO's open data portal, but the code, layout and wording are machine-made and may contain mistakes. Check each site's official file before relying on anything here.</span>
+    <span class="wide-only">This site was designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction. Site data comes from UNESCO's open data portal, but the code, layout and wording are machine-made and may contain mistakes. Check each site's official file before relying on anything here.</span>
+    <span class="narrow-only">Built almost entirely by Claude Opus 5.5, an AI model by Anthropic. It may contain mistakes; check each site's official file.</span>
   </footer>
 
   <dialog id="ledger" class="ledger" aria-labelledby="ledger_title">

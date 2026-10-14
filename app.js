@@ -1045,9 +1045,11 @@ async function main() {
     fit_marquee(docket.states.parentElement);
 
     docket.toggle.setAttribute("aria-pressed", String(!!visit_date));
+    const narrow = window.matchMedia("(max-width: 640px)").matches;
     docket.toggle_label.textContent = visit_date
-      ? `Visited · ${VERB} to strike from register`
-      : HOVER_MODE ? "Not yet visited · click the site to record" : "Not yet visited · tap again to record";
+      ? (narrow ? `Visited · ${VERB} to strike` : `Visited · ${VERB} to strike from register`)
+      : HOVER_MODE ? (narrow ? "Click the site to record" : "Not yet visited · click the site to record")
+        : narrow ? "Tap again to record" : "Not yet visited · tap again to record";
 
     docket.stamp.hidden = !visit_date;
     if (visit_date) {

@@ -141,14 +141,8 @@ b { font-weight: 700; }
 .ledger-peek:hover .ticker-track, .ledger-peek:focus-visible .ticker-track { animation-play-state: paused; }
 @keyframes ticker { to { transform: translateY(-50%); } }
 
-@media (max-width: 640px) {
-  .wide-only, .form-no { display: none; }
-  .site-name { padding-right: 0; }
-  .fields { min-height: calc(2 * 1.35 * var(--t-label)); }
-  .masthead { grid-template-columns: auto auto minmax(0, 1fr); }
-  .tally-meta { grid-column: 1 / -1; }
-  .tally-meta { grid-row: 2; }
-}
+.narrow-only { display: none; }
+
 
 /* ---------- map ---------- */
 
@@ -502,4 +496,28 @@ b { font-weight: 700; }
   .ticker { overflow-y: auto; mask-image: none; }
   .stamp.thunk { animation: none; }
   .dial-tick { transition: none; }
+}
+
+/* phones: every row above and below the map earns its height.
+   Last in the file so it outranks the base rules it adjusts. */
+@media (max-width: 640px) {
+  .wide-only, .form-no { display: none; }
+  .narrow-only { display: inline; }
+  .masthead { grid-template-columns: auto auto minmax(0, 1fr); padding-block: var(--u); }
+  .tally-meta {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 calc(1.5 * var(--u));
+  }
+  .docket { padding-block: var(--u); gap: 6px; }
+  .docket-head { padding-bottom: 6px; }
+  .docket-site { gap: 4px; }
+  .site-name { padding-right: 0; font-size: 1.25rem; }
+  .docket-actions { flex-wrap: nowrap; justify-content: space-between; }
+  .toggle { padding-block: 6px; white-space: nowrap; min-width: 0; }
+  .docket-actions a { white-space: nowrap; }
+  .ai-notice { flex-wrap: nowrap; padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
 }
