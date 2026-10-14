@@ -197,28 +197,33 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   // head: a frieze of the register's seal (a circle round a square), like a
   // stamp's perforated edge, over a dashed rule
   const right = CARD_W - left;
+  // edge to edge, like a sheet of stamps: the spacing divides the card
+  // exactly, so the end seals sit on the edges and crop at their halfway line
   const seal_r = 8;
-  const seals = 36;
-  const step = (right - left - 2 * seal_r) / (seals - 1);
+  const gaps = Math.round(CARD_W / 30);
+  const step = CARD_W / gaps;
+  const seals = gaps + 1;
+  const first = 0;
+  const frieze_y = 24;
   g.strokeStyle = "rgba(255,255,255,0.4)";
   g.lineWidth = 1.2;
   for (let i = 0; i < seals; i++) {
-    const x = left + seal_r + i * step;
+    const x = first + i * step;
     g.beginPath();
-    g.arc(x, 44, seal_r, 0, Math.PI * 2);
+    g.arc(x, frieze_y, seal_r, 0, Math.PI * 2);
     g.stroke();
-    g.strokeRect(x - 5.66, 44 - 5.66, 11.32, 11.32);
+    g.strokeRect(x - 5.66, frieze_y - 5.66, 11.32, 11.32);
   }
   g.setLineDash([5, 5]);
   g.beginPath();
-  g.moveTo(left, 68.5);
-  g.lineTo(right, 68.5);
+  g.moveTo(0, frieze_y + 22.5);
+  g.lineTo(CARD_W, frieze_y + 22.5);
   g.stroke();
   g.setLineDash([]);
-  label(SITE_URL.replace("https://", ""), left, 104, P.pale);
+  label(SITE_URL.replace("https://", ""), left, 86, P.pale);
 
-  // the world, pushed right so it bleeds a little off the card's edge
-  const map_box = [[500, 96], [CARD_W + 40, 500]];
+  // the world, pushed right to the margin the frieze ends on
+  const map_box = [[480, 96], [right, 500]];
   const proj = d3.geoNaturalEarth1().fitExtent(map_box, { type: "Sphere" });
   const path = d3.geoPath(proj, g);
   g.lineWidth = 1;
