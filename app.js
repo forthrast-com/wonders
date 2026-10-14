@@ -9,8 +9,10 @@ const HIT_RADIUS_PX = 18;
 const FOCUS_ZOOM = 4;
 const REDUCED_MOTION = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 // mouse/trackpad: hover files a site, click stamps it. Touch: tap, then tap again.
-const HOVER_MODE = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-const VERB = HOVER_MODE ? "click" : "tap";
+// A starting guess only: touch laptops, iPads with trackpads and some phones
+// report hover. The pointer actually in use switches it (see set_hover_mode).
+let HOVER_MODE = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+const verb = () => (HOVER_MODE ? "click" : "tap");
 // switch from 1:110m to 1:50m coastline past this zoom
 const FINE_ZOOM = 2.5;
 
@@ -115,11 +117,26 @@ function brag_line(count, total, countries) {
   return `My World Heritage register: ${count} of ${of} sites visited${across}. How many are in yours?`;
 }
 
-// The share card: the poster's blue, the odometer, and the world with your
-// visits marked as seals. `generic` draws the link-preview card instead.
+// "Historic Centre of Rome, the Properties of the Holy See…" → "Historic Centre of Rome"
+function short_name(name) {
+  return name.split(/,| – | - |: | \(/)[0].trim();
+}
+
+function shuffled(items) {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// The share card: the poster's blue, one huge number, and the world with your
+// visits marked as seals. Two type styles only: the numerals and a caps label.
+// `generic` draws the link-preview card instead.
 async function render_card({ sites, visits, land, summary, generic = false }) {
   // canvas text silently falls back unless the face is loaded first
-  await Promise.all(["800 120px Archivo", "700 20px Archivo", "400 26px Archivo"].map((f) => document.fonts.load(f)));
+  await Promise.all(["800 200px Archivo", "700 18px Archivo"].map((f) => document.fonts.load(f)));
   const c = document.createElement("canvas");
   c.width = CARD_W;
   c.height = CARD_H;
@@ -128,11 +145,53 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
     field: "#123f80", sea: "#1b5cb0", land: "#2b6dc2", white: "#ffffff",
     pale: "#bcd3f2", line: "rgba(255,255,255,0.45)", faint: "rgba(255,255,255,0.35)",
   };
+  const left = 56;
+
+  // the one label style; returns its drawn width
+  const label = (text, x, y, colour = P.white, align = "left") => {
+    const s = String(text).toUpperCase();
+    g.font = "700 18px Archivo, Helvetica, Arial, sans-serif";
+    g.letterSpacing = "2.2px";
+    g.fillStyle = colour;
+    g.textAlign = align;
+    g.fillText(s, x, y);
+    const w = g.measureText(s).width;
+    g.textAlign = "left";
+    g.letterSpacing = "0px";
+    return w;
+  };
+
   g.fillStyle = P.field;
   g.fillRect(0, 0, CARD_W, CARD_H);
 
-  // the world, right-hand two thirds
-  const proj = d3.geoNaturalEarth1().fitExtent([[440, 70], [1164, 560]], { type: "Sphere" });
+  // head: a frieze of the register's seal (a circle round a square), like a
+  // stamp's perforated edge, over a dashed rule
+  const right = CARD_W - left;
+  const seal_r = 8;
+  const seals = 36;
+  const step = (right - left - 2 * seal_r) / (seals - 1);
+  g.strokeStyle = "rgba(255,255,255,0.4)";
+  g.lineWidth = 1.2;
+  for (let i = 0; i < seals; i++) {
+    const x = left + seal_r + i * step;
+    g.beginPath();
+    g.arc(x, 44, seal_r, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeRect(x - 5.66, 44 - 5.66, 11.32, 11.32);
+  }
+  g.setLineDash([5, 5]);
+  g.beginPath();
+  g.moveTo(left, 68.5);
+  g.lineTo(right, 68.5);
+  g.stroke();
+  g.setLineDash([]);
+  label(SITE_URL.replace("https://", ""), right, 104, P.pale, "right");
+
+  // the world, right-hand side
+  const map_box = [[456, 128], [right, 492]];
+  const proj = d3.geoNaturalEarth1().fitExtent(map_box, { type: "Sphere" });
+  const [[, map_top], [, map_bottom]] = d3.geoPath(proj).bounds({ type: "Sphere" });
+  const map_cy = (map_top + map_bottom) / 2;
   const path = d3.geoPath(proj, g);
   g.lineWidth = 1;
   g.beginPath(); path({ type: "Sphere" }); g.fillStyle = P.sea; g.fill(); g.strokeStyle = P.line; g.stroke();
@@ -150,102 +209,55 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
     draw_visited_dot(g, x, y, 2.4, false);
   }
 
-  // the text column
-  const left = 56;
-  const label = (text, x, y, size = 18) => {
-    g.font = `700 ${size}px Archivo, Helvetica, Arial, sans-serif`;
-    g.letterSpacing = `${size * 0.12}px`;
-    g.fillText(text.toUpperCase(), x, y);
-    g.letterSpacing = "0px";
-  };
-  g.textBaseline = "alphabetic";
-  g.fillStyle = P.pale;
-  label("World Heritage Register", left, 96);
-
-  // odometer: one boxed cell per digit
-  const shown = generic ? summary.total : summary.count;
-  const digits = String(shown).padStart(4, "0");
-  const lead = digits.length - String(shown).length;
-  const cell_w = 84, cell_h = 132, top = 124;
-  g.strokeStyle = P.line;
-  g.strokeRect(left + 0.5, top + 0.5, cell_w * digits.length, cell_h);
-  g.font = "800 118px Archivo, Helvetica, Arial, sans-serif";
-  g.textAlign = "center";
-  g.textBaseline = "middle";
-  [...digits].forEach((d, i) => {
-    if (i) { g.beginPath(); g.moveTo(left + i * cell_w + 0.5, top); g.lineTo(left + i * cell_w + 0.5, top + cell_h); g.stroke(); }
-    g.fillStyle = i < lead ? "rgba(255,255,255,0.25)" : P.white;
-    g.fillText(d, left + i * cell_w + cell_w / 2, top + cell_h / 2 + 6);
-  });
-  g.textAlign = "left";
-  g.textBaseline = "alphabetic";
-
-  g.fillStyle = P.pale;
-  label(generic ? "Sites on the List" : "Sites visited", left, 300);
+  // the number, then what it counts
+  const numeral = String(generic ? summary.total : summary.count);
+  g.font = "800 200px Archivo, Helvetica, Arial, sans-serif";
+  const column_w = 360;
+  const size = Math.min(200, Math.floor((200 * column_w) / g.measureText(numeral).width));
+  g.font = `800 ${size}px Archivo, Helvetica, Arial, sans-serif`;
+  // block = numerals (cap height ~0.72em) + two labels + the icon row
+  const cap = size * 0.72;
+  const below = 136;
+  const baseline = Math.round(map_cy - (below - cap) / 2);
   g.fillStyle = P.white;
-  g.font = "400 26px Archivo, Helvetica, Arial, sans-serif";
+  g.textBaseline = "alphabetic";
+  g.fillText(numeral, left - size * 0.04, baseline);
+  const total = summary.total.toLocaleString("en-AU");
   if (generic) {
-    g.fillText("How many have", left, 342);
-    g.fillText("you visited?", left, 374);
+    label("World Heritage sites", left, baseline + 46);
+    label("How many have you visited?", left, baseline + 76, P.pale);
   } else {
-    g.fillText(`of ${summary.total.toLocaleString("en-AU")} inscribed · ${summary.pct}%`, left, 342);
-
-    // icon | number, the key's own pictograms
-    let x = left + 13;
-    const row_y = 388;
-    g.font = "700 26px Archivo, Helvetica, Arial, sans-serif";
-    for (const cat of ["C", "N", "M"]) {
-      draw_marker(g, cat, x, row_y - 9, 13, { visited: false, danger: false });
-      g.fillStyle = P.white;
-      const n = String(summary.by_cat[cat]);
-      g.fillText(n, x + 21, row_y);
-      x += 21 + g.measureText(n).width + 34;
-    }
-    g.font = "400 26px Archivo, Helvetica, Arial, sans-serif";
-    g.fillStyle = P.pale;
-    g.fillText(`${summary.countries} ${summary.countries === 1 ? "country" : "countries"}`, left, 432);
-
-    // postcard strip: where you've been, newest first
-    if (summary.recent.length) {
-      g.fillStyle = P.white;
-      g.font = "700 15px Archivo, Helvetica, Arial, sans-serif";
-      g.letterSpacing = "1.8px";
-      const text = postcard_line(g, summary.recent, 1164 - 440).toUpperCase();
-      g.textAlign = "center";
-      g.fillText(text, (440 + 1164) / 2, 600);
-      g.textAlign = "left";
-      g.letterSpacing = "0px";
-    }
+    label("World Heritage sites visited", left, baseline + 46);
+    label(`${summary.pct}% of ${total}`, left, baseline + 76, P.pale);
   }
 
-  g.fillStyle = P.white;
-  g.font = "700 26px Archivo, Helvetica, Arial, sans-serif";
-  g.fillText(SITE_URL.replace("https://", ""), left, 548);
-  g.fillStyle = P.pale;
-  label("Made with AI · Claude Opus 5.5", left, 580, 14);
+  // icon | number, the key's own pictograms
+  let x = left + 13;
+  const row_y = baseline + below - 6;
+  const cats = generic ? summary.list_by_cat : summary.by_cat;
+  for (const cat of ["C", "N", "M"]) {
+    draw_marker(g, cat, x, row_y - 7, 13, { visited: false, danger: false });
+    x += 22 + label(cats[cat], x + 22, row_y) + 28;
+  }
+  if (!generic) label(`${summary.countries} ${summary.countries === 1 ? "country" : "countries"}`, x - 13, row_y, P.pale);
+
+  // postcard rows along the foot: shuffled names, each row offset sideways
+  // and running off both edges; a short list repeats to fill its row
+  const names = generic ? shuffled(sites).slice(0, 45).map((s) => short_name(s.name)) : shuffled(summary.recent);
+  if (names.length) {
+    const rows = generic ? 3 : names.length < 6 ? 1 : names.length < 15 ? 2 : 3;
+    const offsets = [-40, -170, -95];
+    const sep = "   •   ";
+    for (let r = 0; r < rows; r++) {
+      const own = names.filter((_, i) => i % rows === r);
+      const y = 604 - (rows - 1 - r) * 34;
+      let px = offsets[r];
+      for (let i = 0; px < CARD_W; i++) {
+        px += label(own[i % own.length] + sep, px, y, r % 2 ? P.pale : P.white);
+      }
+    }
+  }
   return c;
-}
-
-// "Historic Centre of Rome, the Properties of the Holy See…" → "Historic Centre of Rome"
-function short_name(name) {
-  return name.split(/,| – | - |: | \(/)[0].trim();
-}
-
-// as many names as fit in `max_w`, then "+ N more"
-function postcard_line(g, names, max_w) {
-  const sep = "  •  ";
-  let line = "";
-  for (let i = 0; i < names.length; i++) {
-    const next = line ? line + sep + names[i] : names[i];
-    const rest = names.length - i - 1;
-    const tail = rest ? `${sep}+ ${rest} more` : "";
-    // measured as it will be drawn: in caps
-    if (g.measureText((next + tail).toUpperCase()).width > max_w) {
-      return line ? `${line}${sep}+ ${names.length - i} more` : `+ ${names.length} sites`;
-    }
-    line = next;
-  }
-  return line;
 }
 
 const canvas_png = (c) => new Promise((resolve, reject) => {
@@ -540,7 +552,11 @@ async function main() {
   };
 
   el("tally_total").textContent = sites.length.toLocaleString("en-AU");
-  if (HOVER_MODE) docket.empty.textContent = "Hover over a site to file it. Click it to record your visit.";
+  const EMPTY_COPY = {
+    hover: "Hover over a site to file it. Click it to record your visit.",
+    tap: "Tap a site on the map to file it. Tap it again to record your visit.",
+  };
+  docket.empty.textContent = HOVER_MODE ? EMPTY_COPY.hover : EMPTY_COPY.tap;
 
   // --- map layers ---
   const projection = d3.geoNaturalEarth1();
@@ -938,6 +954,9 @@ async function main() {
     const ok = await copy_text(ledger_text(entries, sites.length));
     flash(ledger.copy, ok ? "Copied" : "Copy failed");
   });
+  const list_by_cat = { C: 0, N: 0, M: 0 };
+  for (const s of sites) list_by_cat[s.cat] += 1;
+
   function card_summary() {
     const t = tally(sites_by_id, state.visits);
     return {
@@ -946,6 +965,7 @@ async function main() {
       pct: ((100 * t.count) / sites.length).toFixed(1),
       countries: t.states,
       by_cat: t.by_cat,
+      list_by_cat: list_by_cat,
       recent: ledger_entries(sites_by_id, state.visits, "recent").map((e) => short_name(e.site.name)),
     };
   }
@@ -1047,7 +1067,7 @@ async function main() {
     docket.toggle.setAttribute("aria-pressed", String(!!visit_date));
     const narrow = window.matchMedia("(max-width: 640px)").matches;
     docket.toggle_label.textContent = visit_date
-      ? (narrow ? `Visited · ${VERB} to strike` : `Visited · ${VERB} to strike from register`)
+      ? (narrow ? `Visited · ${verb()} to strike` : `Visited · ${verb()} to strike from register`)
       : HOVER_MODE ? (narrow ? "Click the site to record" : "Not yet visited · click the site to record")
         : narrow ? "Tap again to record" : "Not yet visited · tap again to record";
 
@@ -1129,12 +1149,25 @@ async function main() {
     }
   });
 
-  if (HOVER_MODE) {
+  function set_hover_mode(on) {
+    if (HOVER_MODE === on) return;
+    HOVER_MODE = on;
+    docket.empty.textContent = on ? EMPTY_COPY.hover : EMPTY_COPY.tap;
+    render_docket();
+  }
+
+  // a finger means tap-then-tap-again; this runs before the click it starts
+  surface.on("pointerdown.mode", (ev) => {
+    if (ev.pointerType !== "mouse") set_hover_mode(false);
+  });
+
+  {
     // hit-test at most once a frame; leaving a site keeps the docket filled
     // so its button stays reachable
     let hover_point = null;
     surface.on("pointermove", (ev) => {
-      if (ev.buttons) return; // mid-drag
+      if (ev.pointerType !== "mouse" || ev.buttons) return; // touch, pen, or mid-drag
+      set_hover_mode(true);
       const first = hover_point === null;
       hover_point = d3.pointer(ev);
       if (!first) return;
@@ -1247,6 +1280,12 @@ async function main() {
     fit_marquee(docket.name.parentElement);
     fit_marquee(docket.states.parentElement);
   }).observe(docket.site);
+
+  // --- disclaimer note ---
+  const notice = el("notice");
+  document.querySelectorAll("[data-notice]").forEach((b) => b.addEventListener("click", () => notice.showModal()));
+  el("notice_close").addEventListener("click", () => notice.close());
+  notice.addEventListener("click", (ev) => { if (ev.target === notice) notice.close(); });
 
   // --- boot ---
   new ResizeObserver(layout).observe(map_el);

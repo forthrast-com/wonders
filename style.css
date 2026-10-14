@@ -35,11 +35,17 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
+/* follow the phone's toolbar as it collapses, or a strip of page shows below */
+@supports (height: 100dvh) {
+  html, body { height: 100dvh; }
+}
 
 body {
   margin: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
+  /* an implicit auto column lets a long row widen the whole page on phones */
+  grid-template-columns: minmax(0, 1fr);
   background: var(--field);
   color: var(--white);
   font: 400 var(--t-body)/1.4 var(--face);
@@ -112,7 +118,8 @@ b { font-weight: 700; }
   align-content: start;
   justify-items: end;
   gap: 2px;
-  width: clamp(120px, 26vw, 300px);
+  justify-self: end;
+  width: clamp(150px, 30vw, 320px);
   min-width: 0;
   padding: 0;
   border: 0;
@@ -122,8 +129,10 @@ b { font-weight: 700; }
   text-align: right;
   cursor: pointer;
 }
-.ledger-peek > .label { color: var(--pale); }
-.ledger-peek:hover > .label { color: var(--white); text-decoration: underline; }
+.peek-head { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 4px var(--u); }
+.peek-head > .label { color: var(--pale); }
+.peek-button { padding: 2px var(--u); border: 1px solid var(--white); white-space: nowrap; }
+.ledger-peek:hover .peek-button, .ledger-peek:focus-visible .peek-button { background: var(--white); color: var(--field); }
 .ticker {
   display: block;
   width: 100%;
@@ -220,6 +229,7 @@ b { font-weight: 700; }
 .docket {
   position: relative;
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* or a long title widens the page */
   gap: var(--u);
   padding: calc(1.5 * var(--u)) var(--g) calc(2 * var(--u));
   background: var(--paper);
@@ -282,12 +292,12 @@ b { font-weight: 700; }
 .results .tick { grid-row: 1 / span 2; grid-column: 2; align-self: center; font-weight: 800; }
 .results .none { padding: var(--u); font-size: var(--t-label); }
 
-.docket-body { display: grid; }
+.docket-body { display: grid; grid-template-columns: minmax(0, 1fr); }
 .docket-body > * { grid-area: 1 / 1; }
 .is-off { visibility: hidden; }
 .docket-empty { max-width: 60ch; align-self: start; }
 
-.docket-site { position: relative; display: grid; gap: var(--u); justify-items: start; }
+.docket-site { position: relative; display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--u); justify-items: start; }
 
 .fields {
   min-height: calc(1.35 * var(--t-label));
@@ -387,11 +397,30 @@ b { font-weight: 700; }
   font-size: var(--t-label);
   line-height: 1.45;
 }
-.ai-notice strong {
+.badge {
   padding: 0 var(--u);
   border: 1px solid var(--paper);
+  background: none;
+  color: var(--paper);
+  font-family: var(--face);
   white-space: nowrap;
+  cursor: pointer;
 }
+.badge:hover { background: var(--paper); color: var(--ink); }
+
+.notice {
+  width: min(480px, calc(100vw - 2 * var(--g)));
+  padding: 0;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--face);
+}
+/* padding lives inside, so a click on the dialog element itself is the backdrop */
+.notice-body { display: grid; gap: calc(1.5 * var(--u)); justify-items: start; padding: calc(2 * var(--u)) var(--g); }
+.notice::backdrop { background: rgb(18 63 128 / 0.75); }
+.notice h2 { margin: 0; color: var(--ink-soft); }
+.notice p { max-width: 60ch; }
 .ai-notice span { flex: 1 1 40ch; min-width: 0; }
 
 /* ---------- emblem ---------- */
@@ -517,7 +546,11 @@ b { font-weight: 700; }
   .docket-site { gap: 4px; }
   .site-name { padding-right: 0; font-size: 1.25rem; }
   .docket-actions { flex-wrap: nowrap; justify-content: space-between; }
-  .toggle { padding-block: 6px; white-space: nowrap; min-width: 0; }
+  .toggle { padding-block: 6px; white-space: nowrap; min-width: 0; overflow: hidden; }
+  .docket-actions { min-width: 0; }
   .docket-actions a { white-space: nowrap; }
-  .ai-notice { flex-wrap: nowrap; padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
+  /* the register shrinks to its column; the button says what it is */
+  .ledger-peek { width: 100%; }
+  .peek-head > .label:not(.peek-button) { display: none; }
+  .ai-notice { flex-wrap: wrap; justify-content: flex-end; padding-block: 6px calc(6px + env(safe-area-inset-bottom, 0px)); }
 }

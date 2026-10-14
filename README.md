@@ -7,6 +7,9 @@
 > by a person. Site data comes from UNESCO's open data portal, but the code and
 > wording may contain mistakes; check a site's official UNESCO file before relying
 > on anything shown.
+>
+> **Not affiliated with or endorsed by UNESCO.** It's an independent personal
+> project that uses UNESCO's openly published list of World Heritage sites.
 
 Live at **https://wonders.forthrast.com**.
 

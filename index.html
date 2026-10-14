@@ -33,7 +33,10 @@
       <span id="tally_breakdown" class="tally-breakdown"></span>
     </div>
     <button type="button" id="ledger_open" class="ledger-peek" aria-haspopup="dialog" aria-controls="ledger">
-      <span class="label"><span class="wide-only">Your </span>Register<span class="wide-only"> · View all</span></span>
+      <span class="peek-head">
+        <span class="label"><span class="wide-only">Your </span>Register</span>
+        <span class="peek-button label"><span class="wide-only">View and share</span><span class="narrow-only">View &amp; share</span></span>
+      </span>
       <span class="ticker" aria-hidden="true"><span id="ledger_ticker" class="ticker-track"></span></span>
     </button>
   </header>
@@ -89,7 +92,7 @@
       <div class="docket-actions">
         <button type="button" id="d_toggle" class="toggle label" aria-pressed="false">
           <span class="box" aria-hidden="true"></span>
-          <span id="d_toggle_label">Not yet visited · tap again to record</span>
+          <span id="d_toggle_label">Tap again to record</span>
         </button>
         <a id="d_link" class="label" href="#" target="_blank" rel="noopener"><span class="wide-only">Official </span>file ↗&#xFE0E;</a>
       </div>
@@ -99,10 +102,19 @@
   </section>
 
   <footer class="ai-notice" role="note">
-    <strong class="label">Made with AI</strong>
-    <span class="wide-only">This site was designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction. Site data comes from UNESCO's open data portal, but the code, layout and wording are machine-made and may contain mistakes. Check each site's official file before relying on anything here.</span>
-    <span class="narrow-only">Built almost entirely by Claude Opus 5.5, an AI model by Anthropic. It may contain mistakes; check each site's official file.</span>
+    <button type="button" class="badge label" data-notice aria-haspopup="dialog">Made with AI</button>
+    <button type="button" class="badge label" data-notice aria-haspopup="dialog">Unofficial</button>
+    <span class="wide-only">Designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction, so it may contain mistakes. Not affiliated with or endorsed by UNESCO; check each site's official file before relying on anything here.</span>
   </footer>
+
+  <dialog id="notice" class="notice" aria-labelledby="notice_title">
+    <div class="notice-body">
+    <h2 id="notice_title" class="label">About this site</h2>
+    <p><strong>Made with AI.</strong> This site was designed and coded almost entirely by Claude Opus 5.5, an AI model made by Anthropic, under human direction. The code, layout and wording are machine-made and may contain mistakes.</p>
+    <p><strong>Unofficial.</strong> Not affiliated with or endorsed by UNESCO. Site data comes from UNESCO's open data portal; check each site's official file before relying on anything here.</p>
+    <button type="button" id="notice_close" class="tool label">Close</button>
+    </div>
+  </dialog>
 
   <dialog id="ledger" class="ledger" aria-labelledby="ledger_title">
     <header class="ledger-head">
