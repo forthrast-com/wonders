@@ -212,6 +212,10 @@ b { font-weight: 700; }
   cursor: pointer;
 }
 .zoom button + button { border-top: var(--hair); }
+.zoom button svg { display: block; width: 22px; height: 22px; margin: auto; overflow: visible; }
+.globe-rim { fill: none; stroke: var(--white); stroke-width: 1.2; }
+.globe-grid { fill: none; stroke: rgb(255 255 255 / 0.35); stroke-width: 0.6; }
+.globe-land { fill: rgb(255 255 255 / 0.2); stroke: var(--white); stroke-width: 0.8; stroke-linejoin: round; }
 .zoom button:hover { background: var(--poster); }
 
 /* milestone nudge: floats over the map, never moves the layout */

@@ -104,6 +104,36 @@ function ledger_text(entries, total) {
   return [`World Heritage Register: ${entries.length} of ${total.toLocaleString("en-AU")} sites visited (${pct}%)`, "", ...lines].join("\n");
 }
 
+// ---------- opening view: the viewer's own part of the world ----------
+
+// The time zone is a free, prompt-free hint at where someone is: no
+// geolocation, no permission dialog, nothing leaves the browser. Specific
+// zones come first so a continent can be split; null keeps the whole world.
+const HOME_VIEWS = [
+  [/^(Australia\/|Antarctica\/Macquarie)/, [134, -27], 2.6],
+  [/^Pacific\/(Auckland|Chatham)|^NZ/, [173, -41], 3.5],
+  [/^Pacific\//, [175, -12], 2.2],
+  [/^(Europe\/Istanbul|Asia\/(Dubai|Riyadh|Qatar|Bahrain|Kuwait|Tehran|Baghdad|Jerusalem|Tel_Aviv|Beirut|Amman|Damascus|Nicosia|Muscat|Baku|Tbilisi|Yerevan))/, [45, 30], 3],
+  [/^Europe\//, [12, 49], 3],
+  [/^Africa\/(Cairo|Tripoli|Tunis|Algiers|Casablanca|Khartoum)/, [12, 28], 2.6],
+  [/^Africa\//, [22, 0], 2.2],
+  [/^Asia\/(Kolkata|Calcutta|Colombo|Dhaka|Kathmandu|Karachi|Thimphu)/, [80, 22], 3],
+  [/^Asia\/(Tokyo|Seoul|Pyongyang|Shanghai|Hong_Kong|Macau|Taipei|Chongqing|Harbin)/, [122, 34], 3],
+  [/^Asia\/(Bangkok|Jakarta|Singapore|Kuala_Lumpur|Manila|Ho_Chi_Minh|Saigon|Phnom_Penh|Vientiane|Yangon|Makassar|Jayapura)/, [110, 8], 3],
+  [/^Asia\//, [90, 38], 2.2],
+  [/^America\/(Sao_Paulo|Argentina|Buenos_Aires|Santiago|Lima|Bogota|Caracas|Montevideo|La_Paz|Asuncion|Guayaquil|Manaus|Recife|Belem|Fortaleza|Cayenne|Paramaribo)/, [-62, -18], 2.4],
+  [/^America\/(Mexico_City|Monterrey|Cancun|Guatemala|Belize|El_Salvador|Tegucigalpa|Managua|Costa_Rica|Panama|Havana|Jamaica|Port-au-Prince|Santo_Domingo|Puerto_Rico)/, [-86, 18], 3],
+  [/^(America\/|US\/|Canada\/)/, [-98, 42], 2.5],
+  [/^Atlantic\/(Reykjavik|Faroe|Canary|Madeira|Azores)/, [-12, 52], 2.6],
+];
+
+function home_view(time_zone) {
+  for (const [pattern, centre, k] of HOME_VIEWS) {
+    if (pattern.test(time_zone)) return { centre, k };
+  }
+  return null;
+}
+
 // ---------- sharing ----------
 
 const SITE_URL = "https://wonders.forthrast.com";
@@ -185,13 +215,11 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   g.lineTo(right, 68.5);
   g.stroke();
   g.setLineDash([]);
-  label(SITE_URL.replace("https://", ""), right, 104, P.pale, "right");
+  label(SITE_URL.replace("https://", ""), left, 104, P.pale);
 
-  // the world, right-hand side
-  const map_box = [[456, 128], [right, 492]];
+  // the world, pushed right so it bleeds a little off the card's edge
+  const map_box = [[500, 96], [CARD_W + 40, 500]];
   const proj = d3.geoNaturalEarth1().fitExtent(map_box, { type: "Sphere" });
-  const [[, map_top], [, map_bottom]] = d3.geoPath(proj).bounds({ type: "Sphere" });
-  const map_cy = (map_top + map_bottom) / 2;
   const path = d3.geoPath(proj, g);
   g.lineWidth = 1;
   g.beginPath(); path({ type: "Sphere" }); g.fillStyle = P.sea; g.fill(); g.strokeStyle = P.line; g.stroke();
@@ -210,15 +238,22 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
   }
 
   // the number, then what it counts
+  const names = generic ? shuffled(sites).slice(0, 45).map((s) => short_name(s.name)) : shuffled(summary.recent);
+  const rows = !names.length ? 0 : generic ? 3 : names.length < 6 ? 1 : names.length < 15 ? 2 : 3;
+  const ROW_H = 34;
+  const LAST_ROW_Y = 604;
+  const rows_top = rows ? LAST_ROW_Y - (rows - 1) * ROW_H - 18 : CARD_H - 24;
+
   const numeral = String(generic ? summary.total : summary.count);
   g.font = "800 200px Archivo, Helvetica, Arial, sans-serif";
-  const column_w = 360;
+  const column_w = 400;
   const size = Math.min(200, Math.floor((200 * column_w) / g.measureText(numeral).width));
   g.font = `800 ${size}px Archivo, Helvetica, Arial, sans-serif`;
   // block = numerals (cap height ~0.72em) + two labels + the icon row
   const cap = size * 0.72;
   const below = 136;
-  const baseline = Math.round(map_cy - (below - cap) / 2);
+  // anchored bottom left: the icon row sits one row-gap above the postcards
+  const baseline = Math.round(rows_top - 30 - (below - 6));
   g.fillStyle = P.white;
   g.textBaseline = "alphabetic";
   g.fillText(numeral, left - size * 0.04, baseline);
@@ -243,14 +278,12 @@ async function render_card({ sites, visits, land, summary, generic = false }) {
 
   // postcard rows along the foot: shuffled names, each row offset sideways
   // and running off both edges; a short list repeats to fill its row
-  const names = generic ? shuffled(sites).slice(0, 45).map((s) => short_name(s.name)) : shuffled(summary.recent);
-  if (names.length) {
-    const rows = generic ? 3 : names.length < 6 ? 1 : names.length < 15 ? 2 : 3;
+  if (rows) {
     const offsets = [-40, -170, -95];
     const sep = "   •   ";
     for (let r = 0; r < rows; r++) {
       const own = names.filter((_, i) => i % rows === r);
-      const y = 604 - (rows - 1 - r) * 34;
+      const y = LAST_ROW_Y - (rows - 1 - r) * ROW_H;
       let px = offsets[r];
       for (let i = 0; px < CARD_W; i++) {
         px += label(own[i % own.length] + sep, px, y, r % 2 ? P.pale : P.white);
@@ -566,6 +599,28 @@ async function main() {
   const geo_by_res = Object.fromEntries(Object.entries(world).map(([res, w]) => [
     res, { land: collection(w.land), borders: collection(w.borders) },
   ]));
+
+  // the reset button is a little line globe, turned to show Australia
+  {
+    const globe = d3.geoOrthographic().rotate([-128, 18]).scale(10).translate([12, 12]);
+    const globe_path = d3.geoPath(globe);
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("aria-hidden", "true");
+    for (const [cls, geo] of [
+      ["globe-grid", d3.geoGraticule().step([30, 30])()],
+      // specks of island are noise at 22px; keep landmasses only
+      ["globe-land", collection(world["110m"].land.filter((g) => d3.geoArea(g) > 0.0004))],
+      ["globe-rim", { type: "Sphere" }],
+    ]) {
+      const p = document.createElementNS(ns, "path");
+      p.setAttribute("class", cls);
+      p.setAttribute("d", globe_path(geo));
+      svg.append(p);
+    }
+    document.getElementById("zoom_reset").replaceChildren(svg);
+  }
 
   const token = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   const PAINT = {
@@ -1353,6 +1408,16 @@ async function main() {
   // --- boot ---
   new ResizeObserver(layout).observe(map_el);
   layout();
+
+  // open on the viewer's own region, set at once (no animation on arrival)
+  const home = home_view(Intl.DateTimeFormat().resolvedOptions().timeZone ?? "");
+  if (home) {
+    const [hx, hy] = projection(home.centre);
+    surface.call(zoom.transform, d3.zoomIdentity
+      .translate(state.width / 2 - hx * home.k, state.height / 2 - hy * home.k)
+      .scale(home.k));
+  }
+
   render_tally();
   render_docket();
   when_idle(prepare_card);
