@@ -102,6 +102,156 @@ function ledger_text(entries, total) {
   return [`World Heritage Register: ${entries.length} of ${total.toLocaleString("en-AU")} sites visited (${pct}%)`, "", ...lines].join("\n");
 }
 
+// ---------- sharing ----------
+
+const SITE_URL = "https://wonders.forthrast.com";
+const CARD_W = 1200;
+const CARD_H = 630;
+
+function brag_line(count, total, countries) {
+  const of = `UNESCO's ${total.toLocaleString("en-AU")}`;
+  if (count === 0) return `${of} World Heritage sites, and my register starts today. How many are in yours?`;
+  const across = countries > 1 ? `, across ${countries} countries` : "";
+  return `My World Heritage register: ${count} of ${of} sites visited${across}. How many are in yours?`;
+}
+
+// The share card: the poster's blue, the odometer, and the world with your
+// visits marked as seals. `generic` draws the link-preview card instead.
+async function render_card({ sites, visits, land, summary, generic = false }) {
+  // canvas text silently falls back unless the face is loaded first
+  await Promise.all(["800 120px Archivo", "700 20px Archivo", "400 26px Archivo"].map((f) => document.fonts.load(f)));
+  const c = document.createElement("canvas");
+  c.width = CARD_W;
+  c.height = CARD_H;
+  const g = c.getContext("2d");
+  const P = {
+    field: "#123f80", sea: "#1b5cb0", land: "#2b6dc2", white: "#ffffff",
+    pale: "#bcd3f2", line: "rgba(255,255,255,0.45)", faint: "rgba(255,255,255,0.35)",
+  };
+  g.fillStyle = P.field;
+  g.fillRect(0, 0, CARD_W, CARD_H);
+
+  // the world, right-hand two thirds
+  const proj = d3.geoNaturalEarth1().fitExtent([[440, 70], [1164, 560]], { type: "Sphere" });
+  const path = d3.geoPath(proj, g);
+  g.lineWidth = 1;
+  g.beginPath(); path({ type: "Sphere" }); g.fillStyle = P.sea; g.fill(); g.strokeStyle = P.line; g.stroke();
+  g.beginPath(); path(d3.geoGraticule10()); g.strokeStyle = "rgba(255,255,255,0.08)"; g.stroke();
+  g.beginPath(); path(land); g.fillStyle = P.land; g.fill(); g.strokeStyle = P.line; g.stroke();
+  g.fillStyle = P.faint;
+  for (const s of sites) {
+    if (visits[s.id]) continue;
+    const [x, y] = proj([s.lon, s.lat]);
+    g.beginPath(); g.arc(x, y, 1.5, 0, Math.PI * 2); g.fill();
+  }
+  for (const s of sites) {
+    if (!visits[s.id]) continue;
+    const [x, y] = proj([s.lon, s.lat]);
+    draw_visited_dot(g, x, y, 2.4, false);
+  }
+
+  // the text column
+  const left = 56;
+  const label = (text, x, y, size = 18) => {
+    g.font = `700 ${size}px Archivo, Helvetica, Arial, sans-serif`;
+    g.letterSpacing = `${size * 0.12}px`;
+    g.fillText(text.toUpperCase(), x, y);
+    g.letterSpacing = "0px";
+  };
+  g.textBaseline = "alphabetic";
+  g.fillStyle = P.pale;
+  label("World Heritage Register", left, 96);
+
+  // odometer: one boxed cell per digit
+  const shown = generic ? summary.total : summary.count;
+  const digits = String(shown).padStart(4, "0");
+  const lead = digits.length - String(shown).length;
+  const cell_w = 84, cell_h = 132, top = 124;
+  g.strokeStyle = P.line;
+  g.strokeRect(left + 0.5, top + 0.5, cell_w * digits.length, cell_h);
+  g.font = "800 118px Archivo, Helvetica, Arial, sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  [...digits].forEach((d, i) => {
+    if (i) { g.beginPath(); g.moveTo(left + i * cell_w + 0.5, top); g.lineTo(left + i * cell_w + 0.5, top + cell_h); g.stroke(); }
+    g.fillStyle = i < lead ? "rgba(255,255,255,0.25)" : P.white;
+    g.fillText(d, left + i * cell_w + cell_w / 2, top + cell_h / 2 + 6);
+  });
+  g.textAlign = "left";
+  g.textBaseline = "alphabetic";
+
+  g.fillStyle = P.pale;
+  label(generic ? "Sites on the List" : "Sites visited", left, 300);
+  g.fillStyle = P.white;
+  g.font = "400 26px Archivo, Helvetica, Arial, sans-serif";
+  if (generic) {
+    g.fillText("How many have", left, 342);
+    g.fillText("you visited?", left, 374);
+  } else {
+    g.fillText(`of ${summary.total.toLocaleString("en-AU")} inscribed · ${summary.pct}%`, left, 342);
+
+    // icon | number, the key's own pictograms
+    let x = left + 13;
+    const row_y = 388;
+    g.font = "700 26px Archivo, Helvetica, Arial, sans-serif";
+    for (const cat of ["C", "N", "M"]) {
+      draw_marker(g, cat, x, row_y - 9, 13, { visited: false, danger: false });
+      g.fillStyle = P.white;
+      const n = String(summary.by_cat[cat]);
+      g.fillText(n, x + 21, row_y);
+      x += 21 + g.measureText(n).width + 34;
+    }
+    g.font = "400 26px Archivo, Helvetica, Arial, sans-serif";
+    g.fillStyle = P.pale;
+    g.fillText(`${summary.countries} ${summary.countries === 1 ? "country" : "countries"}`, left, 432);
+
+    // postcard strip: where you've been, newest first
+    if (summary.recent.length) {
+      g.fillStyle = P.white;
+      g.font = "700 15px Archivo, Helvetica, Arial, sans-serif";
+      g.letterSpacing = "1.8px";
+      const text = postcard_line(g, summary.recent, 1164 - 440).toUpperCase();
+      g.textAlign = "center";
+      g.fillText(text, (440 + 1164) / 2, 600);
+      g.textAlign = "left";
+      g.letterSpacing = "0px";
+    }
+  }
+
+  g.fillStyle = P.white;
+  g.font = "700 26px Archivo, Helvetica, Arial, sans-serif";
+  g.fillText(SITE_URL.replace("https://", ""), left, 548);
+  g.fillStyle = P.pale;
+  label("Made with AI · Claude Opus 5.5", left, 580, 14);
+  return c;
+}
+
+// "Historic Centre of Rome, the Properties of the Holy See…" → "Historic Centre of Rome"
+function short_name(name) {
+  return name.split(/,| – | - |: | \(/)[0].trim();
+}
+
+// as many names as fit in `max_w`, then "+ N more"
+function postcard_line(g, names, max_w) {
+  const sep = "  •  ";
+  let line = "";
+  for (let i = 0; i < names.length; i++) {
+    const next = line ? line + sep + names[i] : names[i];
+    const rest = names.length - i - 1;
+    const tail = rest ? `${sep}+ ${rest} more` : "";
+    // measured as it will be drawn: in caps
+    if (g.measureText((next + tail).toUpperCase()).width > max_w) {
+      return line ? `${line}${sep}+ ${names.length - i} more` : `+ ${names.length} sites`;
+    }
+    line = next;
+  }
+  return line;
+}
+
+const canvas_png = (c) => new Promise((resolve, reject) => {
+  c.toBlob((b) => (b ? resolve(b) : reject(new Error("card could not be encoded"))), "image/png");
+});
+
 // ---------- storage (the only side-effecting persistence) ----------
 
 function load_visits() {
@@ -483,16 +633,16 @@ async function main() {
     state.width = width;
     state.height = height;
 
-    // top inset clears the chart caption. A portrait box gets the sphere fitted
+    // A portrait box gets the sphere fitted
     // to its height and panned sideways, like a folded chart, rather than a
     // postage stamp of a world floating in empty sea.
-    const inset = [[16, 32], [width - 16, height - 16]];
+    const inset = [[16, 16], [width - 16, height - 16]];
     projection.fitExtent(inset, sphere_geo);
     if (height > width * 0.75) {
-      projection.fitHeight(height - 48, sphere_geo);
+      projection.fitHeight(height - 32, sphere_geo);
       const [[x0, y0], [x1, y1]] = d3.geoPath(projection).bounds(sphere_geo);
       const [tx, ty] = projection.translate();
-      projection.translate([tx + width / 2 - (x0 + x1) / 2, ty + 32 - y0]);
+      projection.translate([tx + width / 2 - (x0 + x1) / 2, ty + 16 - y0]);
     }
     shapes = { sphere: to_path2d(sphere_geo), graticule: to_path2d(d3.geoGraticule10()) };
     for (const s of sites) [s.px, s.py] = projection([s.lon, s.lat]);
@@ -504,7 +654,7 @@ async function main() {
     // pan limits: the sphere's bounds, never tighter than the viewport itself
     const [[bx0, by0], [bx1, by1]] = path.bounds(sphere_geo);
     zoom.extent([[0, 0], [width, height]]).translateExtent([
-      [Math.min(0, bx0 - 16), Math.min(0, by0 - 32)],
+      [Math.min(0, bx0 - 16), Math.min(0, by0 - 16)],
       [Math.max(width, bx1 + 16), Math.max(height, by1 + 16)],
     ]);
     if (state.focusing) {
@@ -618,8 +768,29 @@ async function main() {
     const t = tally(sites_by_id, state.visits);
     const pct = ((100 * t.count) / sites.length).toFixed(1);
     el("tally_pct").textContent = `${pct}%`;
-    el("tally_breakdown").textContent =
-      `Cultural ${t.by_cat.C} · Natural ${t.by_cat.N} · Mixed ${t.by_cat.M} · ${t.states} ${t.states === 1 ? "country" : "countries"}`;
+    const breakdown = el("tally_breakdown");
+    const svg_ns = "http://www.w3.org/2000/svg";
+    breakdown.replaceChildren(
+      ...["C", "N", "M"].map((cat) => {
+        const group = document.createElement("span");
+        group.className = "cat-count";
+        group.title = CATEGORY_NAMES[cat];
+        group.setAttribute("aria-label", `${CATEGORY_NAMES[cat]}: ${t.by_cat[cat]}`);
+        const icon = document.createElementNS(svg_ns, "svg");
+        icon.setAttribute("viewBox", "-15 -15 30 30");
+        icon.setAttribute("aria-hidden", "true");
+        icon.dataset.icon = cat;
+        icon.dataset.mode = "open";
+        const n = document.createElement("b");
+        n.textContent = t.by_cat[cat];
+        group.append(icon, n);
+        return group;
+      }),
+      Object.assign(document.createElement("span"), {
+        textContent: `${t.states} ${t.states === 1 ? "country" : "countries"}`,
+      }),
+    );
+    fill_key_icons(breakdown);
 
     const lit = lit_tick_count(t.count, sites.length);
     ring.forEach((g, i) => g.classList.toggle("lit", i < lit));
@@ -637,10 +808,10 @@ async function main() {
     sort: el("ledger_sort"),
     copy: el("ledger_copy"),
     share: el("ledger_share"),
+    card: el("ledger_card"),
     ticker: el("ledger_ticker"),
   };
   ledger.sort.value = LEDGER_SORTS[load_sort()] ? load_sort() : "recent";
-  ledger.share.hidden = typeof navigator.share !== "function";
 
   function paint_ticker(names) {
     // roll only when the list overflows; the track is doubled so the loop is seamless
@@ -767,17 +938,56 @@ async function main() {
     const ok = await copy_text(ledger_text(entries, sites.length));
     flash(ledger.copy, ok ? "Copied" : "Copy failed");
   });
+  function card_summary() {
+    const t = tally(sites_by_id, state.visits);
+    return {
+      count: t.count,
+      total: sites.length,
+      pct: ((100 * t.count) / sites.length).toFixed(1),
+      countries: t.states,
+      by_cat: t.by_cat,
+      recent: ledger_entries(sites_by_id, state.visits, "recent").map((e) => short_name(e.site.name)),
+    };
+  }
+
+  const make_card = (generic = false) => render_card({
+    sites, visits: state.visits, land: geo_by_res["110m"].land, summary: card_summary(), generic,
+  });
+
+  // Share: the phone's share sheet with the card attached where it allows
+  // files; without a share sheet, the line and link go to the clipboard.
   ledger.share.addEventListener("click", async () => {
-    const entries = ledger_entries(sites_by_id, state.visits, ledger.sort.value);
-    const text = ledger_text(entries, sites.length);
+    const s = card_summary();
+    const text = brag_line(s.count, s.total, s.countries);
+    if (typeof navigator.share !== "function") {
+      const ok = await copy_text(`${text} ${SITE_URL}`);
+      flash(ledger.share, ok ? "Link copied" : "Copy failed");
+      return;
+    }
+    const data = { title: "World Heritage Register", text, url: SITE_URL };
+    const file = new File([await canvas_png(await make_card())], "world-heritage-register.png", { type: "image/png" });
+    if (navigator.canShare?.({ files: [file] })) data.files = [file];
     try {
-      await navigator.share({ title: "World Heritage Register", text });
+      await navigator.share(data);
     } catch (err) {
       if (err.name === "AbortError") return; // viewer closed the share sheet
-      const ok = await copy_text(text);
-      flash(ledger.share, ok ? "Copied instead" : "Share failed");
+      const ok = await copy_text(`${text} ${SITE_URL}`);
+      flash(ledger.share, ok ? "Link copied" : "Share failed");
     }
   });
+
+  ledger.card.addEventListener("click", async () => {
+    const url = URL.createObjectURL(await canvas_png(await make_card()));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "world-heritage-register.png";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    flash(ledger.card, "Saved");
+  });
+
+  // used by scripts/make_og_card.sh to render the static link-preview image
+  window.WHR = { card_data_url: async (generic = true) => (await make_card(generic)).toDataURL("image/png") };
 
   function paint_count(n) {
     const digits = String(n).padStart(4, "0");

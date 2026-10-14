@@ -41,3 +41,8 @@ python3 scripts/build_data.py    # → data/sites.json, data/world.json
 The UNESCO list comes from `data.unesco.org` (dataset `whc001`) because
 `whc.unesco.org` sits behind a Cloudflare challenge. One site ships with no
 coordinates at all; `COORD_OVERRIDES` in `build_data.py` places it.
+
+## Link-preview image
+
+`og-card.png` is drawn by the page's own share-card renderer. After design
+changes, serve the site locally and run `bash scripts/make_og_card.sh http://localhost:8000/`.

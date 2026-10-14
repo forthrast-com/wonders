@@ -102,6 +102,9 @@ b { font-weight: 700; }
   line-height: 1.6;
 }
 .tally-meta .label { color: var(--pale); }
+.tally-breakdown { display: flex; flex-wrap: wrap; align-items: center; gap: 2px calc(1.5 * var(--u)); }
+.cat-count { display: inline-flex; align-items: center; gap: 4px; }
+.cat-count svg { width: 18px; height: 18px; overflow: visible; }
 
 /* masthead ticker of recorded visits; the whole block opens the ledger */
 .ledger-peek {
@@ -139,7 +142,7 @@ b { font-weight: 700; }
 @keyframes ticker { to { transform: translateY(-50%); } }
 
 @media (max-width: 640px) {
-  .wide-only { display: none; }
+  .wide-only, .form-no { display: none; }
   .site-name { padding-right: 0; }
   .fields { min-height: calc(2 * 1.35 * var(--t-label)); }
   .masthead { grid-template-columns: auto auto minmax(0, 1fr); }
@@ -160,18 +163,6 @@ b { font-weight: 700; }
 .map-layer { pointer-events: none; }
 .map-surface { cursor: crosshair; touch-action: none; -webkit-tap-highlight-color: transparent; }
 .map-surface.over-site { cursor: pointer; }
-
-.caption {
-  position: absolute;
-  top: var(--u);
-  left: var(--g);
-  right: var(--g);
-  color: var(--pale);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-}
 
 /* key and zoom share one panel style and one bottom edge */
 .panel {
@@ -394,7 +385,7 @@ b { font-weight: 700; }
 .ai-notice {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 2px calc(2 * var(--u));
   padding: var(--u) var(--g) calc(var(--u) + env(safe-area-inset-bottom, 0px));
   background: var(--ink);
